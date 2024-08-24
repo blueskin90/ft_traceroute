@@ -1,0 +1,125 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+CC	Makefile	/^CC = gcc$/;"	m
+DATA_SIZE	includes/ft_traceroute.h	17;"	d
+DEFAULT_ANSWER_TIMEOUT	includes/ft_traceroute.h	38;"	d
+DEFAULT_DATA_LEN	includes/ft_traceroute.h	34;"	d
+DEFAULT_MAX_TTL	includes/ft_traceroute.h	35;"	d
+DEFAULT_PROBE_PER_HOP	includes/ft_traceroute.h	37;"	d
+DEFAULT_PROTOCOL	includes/ft_traceroute.h	40;"	d
+DEFAULT_SEND_WAIT	includes/ft_traceroute.h	39;"	d
+DEFAULT_START_TTL	includes/ft_traceroute.h	36;"	d
+ERROR	includes/ft_traceroute.h	/^ERROR,$/;"	e	enum:e_errorcode
+FLAGS	Makefile	/^FLAGS = -Wall -Wextra -Werror -fsanitize=address -g3$/;"	m
+FT_TRACEROUTE_H	includes/ft_traceroute.h	2;"	d
+HEADERS	Makefile	/^HEADERS = .\/includes\/ft_traceroute.h$/;"	m
+ICMP	includes/ft_traceroute.h	/^	ICMP,$/;"	e	enum:e_protocol
+ICMP_DEST_UNREACHABLE	includes/ft_traceroute.h	22;"	d
+ICMP_HDR_SIZE	includes/ft_traceroute.h	19;"	d
+ICMP_TTL_EXCEEDED	includes/ft_traceroute.h	21;"	d
+INCLUDES	Makefile	/^INCLUDES = -I includes$/;"	m
+INCORRECT_CHECKSUM	includes/ft_traceroute.h	/^INCORRECT_CHECKSUM,$/;"	e	enum:e_errorcode
+INCORRECT_SIZE	includes/ft_traceroute.h	/^INCORRECT_SIZE,$/;"	e	enum:e_errorcode
+INVALID_ARGUMENT	includes/ft_traceroute.h	/^INVALID_ARGUMENT,$/;"	e	enum:e_errorcode
+INVALID_OPTION	includes/ft_traceroute.h	/^INVALID_OPTION,$/;"	e	enum:e_errorcode
+IPV4_ARGUMENTS	includes/ft_traceroute.h	26;"	d
+IPV4_FORMAT	includes/ft_traceroute.h	24;"	d
+IPV4_HDR_SIZE	includes/ft_traceroute.h	18;"	d
+MALLOC_ERROR	includes/ft_traceroute.h	/^MALLOC_ERROR,$/;"	e	enum:e_errorcode
+MSG_SIZE	includes/ft_traceroute.h	16;"	d
+MUST_BE_HEX_ERROR	includes/ft_traceroute.h	/^MUST_BE_HEX_ERROR,$/;"	e	enum:e_errorcode
+NAME	Makefile	/^NAME = ft_traceroute$/;"	m
+OBJS	Makefile	/^OBJS = $(addprefix objs\/, $(addsuffix .o, \\$/;"	m
+PARSING_ERROR	includes/ft_traceroute.h	/^PARSING_ERROR,$/;"	e	enum:e_errorcode
+QUANTUM_PING	includes/ft_traceroute.h	/^QUANTUM_PING,$/;"	e	enum:e_errorcode
+RESOLUTION_ERROR	includes/ft_traceroute.h	/^RESOLUTION_ERROR,$/;"	e	enum:e_errorcode
+SIZE_TOO_BIG	includes/ft_traceroute.h	/^SIZE_TOO_BIG,$/;"	e	enum:e_errorcode
+SOCK_ERROR	includes/ft_traceroute.h	/^SOCK_ERROR,$/;"	e	enum:e_errorcode
+SUCCESS	includes/ft_traceroute.h	/^SUCCESS,$/;"	e	enum:e_errorcode
+TCP	includes/ft_traceroute.h	/^	TCP$/;"	e	enum:e_protocol
+UDP	includes/ft_traceroute.h	/^	UDP,$/;"	e	enum:e_protocol
+USAGE	includes/ft_traceroute.h	/^USAGE,$/;"	e	enum:e_errorcode
+add_node	srcs/traceroute/oldmain.c	/^void add_node(struct s_list **list, struct s_list *node)$/;"	f
+args	includes/ft_traceroute.h	/^	struct s_args args;$/;"	m	struct:s_env	typeref:struct:s_env::s_args
+args_parsing	srcs/traceroute/oldparsing.c	/^int args_parsing(struct s_env *env, int ac, char **av)$/;"	f
+args_parsing	srcs/traceroute/parsing.c	/^int args_parsing(struct s_env *env, int ac, char **av)$/;"	f
+calculate_mdev	srcs/traceroute/oldmain.c	/^void calculate_mdev(struct s_env *env)$/;"	f
+compute_checksum	srcs/traceroute/oldmain.c	/^int			compute_checksum(char *buffer, size_t buffsize)$/;"	f
+copy_mono_pattern	srcs/traceroute/oldmain.c	/^void copy_mono_pattern(char *buffer, size_t buffsize, char pattern)$/;"	f
+copy_pattern	srcs/traceroute/oldmain.c	/^void copy_pattern(char *buffer, size_t buffsize, char *pattern)$/;"	f
+create_node	srcs/traceroute/oldmain.c	/^struct s_list* create_node(uint16_t seq, struct timeval *time)$/;"	f
+daddr	includes/ft_traceroute.h	/^	struct sockaddr_in daddr;$/;"	m	struct:s_env	typeref:struct:s_env::sockaddr_in
+data_size	includes/ft_traceroute.h	/^	size_t data_size;$/;"	m	struct:s_args
+dest	includes/ft_traceroute.h	/^	char *dest;$/;"	m	struct:s_args
+dport	includes/ft_traceroute.h	/^	int dport;$/;"	m	struct:s_tcp
+dport	includes/ft_traceroute.h	/^	int dport;$/;"	m	struct:s_udp
+e_errorcode	includes/ft_traceroute.h	/^enum e_errorcode {$/;"	g
+e_protocol	includes/ft_traceroute.h	/^enum e_protocol {$/;"	g
+fill_buffer	srcs/traceroute/oldmain.c	/^void fill_buffer(struct s_env *env, char *buffer, size_t buffsize)$/;"	f
+fill_header	srcs/traceroute/oldmain.c	/^int	fill_header(struct s_env *env, char *buffer, size_t buffsize)$/;"	f
+fill_message	srcs/traceroute/oldmain.c	/^int fill_message(struct s_env *env, char *buffer, size_t bufsize)$/;"	f
+fill_modifications	srcs/traceroute/oldmain.c	/^int fill_modifications(struct s_env *env, char *buffer)$/;"	f
+free_env	srcs/traceroute/main.c	/^static int		free_env(struct s_env *env)$/;"	f	file:
+free_env	srcs/traceroute/oldmain.c	/^void free_env(struct s_env *env)$/;"	f
+free_list	srcs/traceroute/oldmain.c	/^void free_list(struct s_list *list)$/;"	f
+get_node	srcs/traceroute/oldmain.c	/^struct s_list* get_node(struct s_list **list, uint16_t seq)$/;"	f
+icmp	includes/ft_traceroute.h	/^	struct s_icmp icmp;$/;"	m	union:u_protocol	typeref:struct:u_protocol::s_icmp
+init_env	srcs/traceroute/main.c	/^static int		init_env(struct s_env *env)$/;"	f	file:
+init_env	srcs/traceroute/oldmain.c	/^int init_env(struct s_env *env)$/;"	f
+intHandler	srcs/traceroute/oldmain.c	/^void intHandler(int dummy)$/;"	f
+invalid_argument	srcs/traceroute/error.c	/^int invalid_argument(struct s_env *env, char *arg)$/;"	f
+invalid_option	srcs/traceroute/error.c	/^int invalid_option(struct s_env *env, char *arg)$/;"	f
+main	srcs/traceroute/main.c	/^int			main(int ac, char **av)$/;"	f
+main	srcs/traceroute/oldmain.c	/^int			main(int ac, char **av)$/;"	f
+msg_type	includes/ft_traceroute.h	/^	uint8_t msg_type;	$/;"	m	struct:s_icmp
+must_be_hex	srcs/traceroute/error.c	/^int must_be_hex(struct s_env *env, char *arg)$/;"	f
+open_socket	srcs/traceroute/oldparsing.c	/^static int open_socket(struct s_env *env)$/;"	f	file:
+open_socket	srcs/traceroute/parsing.c	/^static int open_socket(struct s_env *env)$/;"	f	file:
+option_requires_argument	srcs/traceroute/error.c	/^int option_requires_argument(struct s_env *env, char *option)$/;"	f
+packet_len	includes/ft_traceroute.h	/^	uint32_t packet_len;$/;"	m	struct:s_args
+parse_arg	srcs/traceroute/oldparsing.c	/^static int parse_arg(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_arg	srcs/traceroute/parsing.c	/^static int parse_arg(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_count	srcs/traceroute/oldparsing.c	/^static int parse_count(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_count	srcs/traceroute/parsing.c	/^static int parse_count(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_dest	srcs/traceroute/oldparsing.c	/^static int parse_dest(struct s_env *env, char *dest)$/;"	f	file:
+parse_dest	srcs/traceroute/parsing.c	/^static int parse_dest(struct s_env *env, char *dest)$/;"	f	file:
+parse_dest_ip	srcs/traceroute/oldparsing.c	/^static void parse_dest_ip(struct s_env *env, struct sockaddr_in* addr)$/;"	f	file:
+parse_dest_ip	srcs/traceroute/parsing.c	/^static void parse_dest_ip(struct s_env *env, struct sockaddr_in* addr)$/;"	f	file:
+parse_pattern	srcs/traceroute/oldparsing.c	/^static int parse_pattern(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_pattern	srcs/traceroute/parsing.c	/^static int parse_pattern(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_response	srcs/traceroute/oldmain.c	/^int parse_response(struct s_env *env, char *buffer, int buffersize, struct timeval *send_time)$/;"	f
+parse_response_error	srcs/traceroute/oldmain.c	/^int parse_response_error(struct s_env *env, char* buffer, int buffersize, struct ipv4_hdr *ipv4_hdr, struct icmp4_hdr *icmp_hdr)$/;"	f
+parse_size	srcs/traceroute/oldparsing.c	/^static int parse_size(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_size	srcs/traceroute/parsing.c	/^static int parse_size(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_ttl	srcs/traceroute/oldparsing.c	/^static int parse_ttl(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+parse_ttl	srcs/traceroute/parsing.c	/^static int parse_ttl(struct s_env *env, int ac, char **av, int *i)$/;"	f	file:
+ping	srcs/traceroute/oldmain.c	/^int ping(struct s_env *env)$/;"	f
+print_end_stats	srcs/traceroute/oldmain.c	/^void print_end_stats(struct s_env *env)$/;"	f
+print_first_line	srcs/traceroute/oldmain.c	/^int print_first_line(struct s_env *env)$/;"	f
+probe_per_hop	includes/ft_traceroute.h	/^	uint8_t probe_per_hop;$/;"	m	struct:s_args
+progname	includes/ft_traceroute.h	/^	char *progname;$/;"	m	struct:s_env
+protocol	includes/ft_traceroute.h	/^	union u_protocol protocol;$/;"	m	struct:s_args	typeref:union:s_args::u_protocol
+protocol_type	includes/ft_traceroute.h	/^	uint8_t protocol_type;$/;"	m	struct:s_args
+receive_answer	srcs/traceroute/oldmain.c	/^int receive_answer(int sock, struct s_env *env, struct timeval *time)$/;"	f
+running	srcs/traceroute/oldmain.c	/^int running = 1;$/;"	v
+s_args	includes/ft_traceroute.h	/^struct s_args {$/;"	s
+s_env	includes/ft_traceroute.h	/^struct s_env$/;"	s
+s_icmp	includes/ft_traceroute.h	/^struct s_icmp {$/;"	s
+s_tcp	includes/ft_traceroute.h	/^struct s_tcp {$/;"	s
+s_udp	includes/ft_traceroute.h	/^struct s_udp {$/;"	s
+send_message	srcs/traceroute/oldmain.c	/^void send_message(struct s_env *env, int sock, char *buffer)$/;"	f
+send_wait	includes/ft_traceroute.h	/^	uint32_t send_wait;$/;"	m	struct:s_args
+sport	includes/ft_traceroute.h	/^	int sport;$/;"	m	struct:s_tcp
+sport	includes/ft_traceroute.h	/^	int sport;$/;"	m	struct:s_udp
+start_ttl	includes/ft_traceroute.h	/^	uint8_t start_ttl;$/;"	m	struct:s_args
+substract_timeval	srcs/traceroute/oldmain.c	/^int substract_timeval(struct timeval *result, const struct timeval *tv1, struct timeval *tv2) \/\/ return 1 - 2$/;"	f
+tcp	includes/ft_traceroute.h	/^	struct s_tcp tcp;$/;"	m	union:u_protocol	typeref:struct:u_protocol::s_tcp
+ttl	includes/ft_traceroute.h	/^	uint8_t ttl;$/;"	m	struct:s_args
+u_protocol	includes/ft_traceroute.h	/^union u_protocol {$/;"	u
+udp	includes/ft_traceroute.h	/^	struct s_udp udp;$/;"	m	union:u_protocol	typeref:struct:u_protocol::s_udp
+usage	srcs/traceroute/error.c	/^int usage(struct s_env *env)$/;"	f
+verify_checksum	srcs/traceroute/oldmain.c	/^int verify_checksum(char* buffer, size_t buffsize)$/;"	f
