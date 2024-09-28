@@ -21,10 +21,6 @@
 #define ICMP_TTL_EXCEEDED 11
 #define ICMP_DEST_UNREACHABLE 3
 
-#define IPV4_FORMAT "%hhu.%hhu.%hhu.%hhu"
-
-#define IPV4_ARGUMENTS(x) x.addr_split[0], x.addr_split[1], x.addr_split[2], x.addr_split[3]
-
 enum e_protocol {
 	ICMP,
 	UDP,
@@ -36,7 +32,7 @@ enum e_protocol {
 #define DEFAULT_START_TTL 1
 #define DEFAULT_PROBE_PER_HOP 3
 #define DEFAULT_ANSWER_TIMEOUT 500;
-#define DEFAULT_SEND_WAIT 0;
+#define DEFAULT_SEND_WAIT 50;
 #define DEFAULT_PROTOCOL ICMP;
 
 #define MTU_FLAG 0x1
@@ -69,6 +65,7 @@ struct s_args {
 	uint8_t start_ttl;
 	uint8_t probe_per_hop;
 	uint32_t send_wait;
+	uint32_t answer_timeout;
 	uint32_t packet_len;
 	uint8_t protocol_type;
 	uint8_t flags;
@@ -81,6 +78,7 @@ struct s_env
 	char *progname;
 	struct sockaddr_in daddr;
 	struct s_args args;
+	int sock;
 };
 
 int args_parsing(struct s_env *env, int ac, char **av);

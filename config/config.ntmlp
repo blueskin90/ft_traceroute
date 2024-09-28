@@ -1,0 +1,52 @@
+flag:
+	short: f
+	long: first
+	arg_name: first_ttl
+	type: uint8_t
+	default: 1
+	desc: Specifies with what TTL to start.
+	-
+	short: m
+	long: max-hops
+	arg_name: max_ttl
+	type: uint8_t
+	default: 30
+	min: 1
+	desc: Specifies the maximum number of hops (max time_to_live value)
+	-
+	long: mtu
+	type: bool #peut etre que on devrait faire une fonction specifique pour set un pointeur sur bool, genre on doit passer l'offset du bit dans le pointeur aussi ?
+	desc: Discover MTU along the path being traced. Implies -F -N 1.  New mtu is printed once in a form of F=NUM at the first probe of a hop which requires such mtu to be reached. (Actually, the corre‐spond "frag needed" icmp message normally is sent by the previous hop). Note, that some routers might cache once the seen information on a fragmentation. Thus you can receive the final mtu from a closer hop.  Try to specify an unusual tos by -t ,  this  can  help for one attempt (then it can be cached there as well).
+	-
+	short: p
+	long: port
+	arg_name: port
+	type: uint16_t
+	desc: For UDP tracing, specifies the destination port base traceroute will use (the destination port number will be incremented by each probe). For ICMP tracing, specifies the initial ICMP sequence value (incremented by each probe too). For TCP and others specifies just the (constant) destination port to connect. When using the tcptraceroute wrapper, -p specifies the source port.
+	-
+	short: q
+	long: queries
+	arg_name: nqueries
+	type: uint8_t
+	default: 3
+	max: 10
+	desc: Sets the number of probe packets per hop
+	-
+	long: help
+	type: help
+	-
+	short: u
+	long: usage
+	type: usage
+
+argument:
+	arg_name: host
+	type: string
+	desc: The host to trace route to.
+
+optional argument:
+	arg_name: packetlen
+	type: uint32_t
+	default: 60
+	min: 8
+	desc: The packet data size.
