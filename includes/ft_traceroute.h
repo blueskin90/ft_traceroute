@@ -29,7 +29,7 @@ enum e_protocol {
 	ICMP,
 	UDP,
 	TCP
-}
+};
 
 #define DEFAULT_DATA_LEN 60
 #define DEFAULT_MAX_TTL 30
@@ -39,57 +39,42 @@ enum e_protocol {
 #define DEFAULT_SEND_WAIT 0;
 #define DEFAULT_PROTOCOL ICMP;
 
+#define MTU_FLAG 0x1
+
 // handled flags: -m max ttl, -q nbre packet par ttl, -f first number of ttl, -w temps dattente dun retour (default 500 ms), -z temps d'attente entre l'envoi de chaque packet (default inconnu), maybe --mtu 
 // optional packet_len uint64_t but max is DATA_SIZE
 
-enum e_errorcode {
-ERROR,
-SUCCESS,
-PARSING_ERROR,
-INVALID_ARGUMENT,
-INVALID_OPTION,
-RESOLUTION_ERROR,
-MUST_BE_HEX_ERROR,
-SIZE_TOO_BIG,
-INCORRECT_CHECKSUM,
-INCORRECT_SIZE,
-QUANTUM_PING,
-MALLOC_ERROR,
-SOCK_ERROR,
-USAGE,
-};
-
 struct s_icmp {
 	uint8_t msg_type;	
-}
+};
 
 struct s_tcp {
 	int sport;
 	int dport;
-}
+};
 
 struct s_udp {
 	int sport;
 	int dport;
-}
+};
 
 union u_protocol {
 	struct s_icmp icmp;
 	struct s_tcp tcp;
 	struct s_udp udp;
-}
+};
 
 struct s_args {
-	size_t data_size;
-	uint8_t ttl;
+	uint8_t max_ttl;
 	uint8_t start_ttl;
 	uint8_t probe_per_hop;
 	uint32_t send_wait;
 	uint32_t packet_len;
 	uint8_t protocol_type;
+	uint8_t flags;
 	union u_protocol protocol;
 	char *dest;
-}
+};
 
 struct s_env
 {

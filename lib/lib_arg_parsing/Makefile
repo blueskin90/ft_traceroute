@@ -3,48 +3,48 @@
 #                                                         :::      ::::::::    #
 #    makefile                                           :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
-#    By: toliver <marvin@42.fr>                     +#+  +:+       +#+         #
-#                                                 +#+#+#+#+#+   +#+            #
+#    By: toliver <toliver@42.fr>                    +#+  +:+       +#+         #
+#    By: jucapic <marvin@42.fr>                   +#+#+#+#+#+   +#+            #
 #    Created: 2018/09/20 19:50:33 by toliver           #+#    #+#              #
 #    Updated: 2022/01/28 14:50:57 by toliver          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 
-NAME = ft_traceroute
+NAME = lib_arg_parsing.a
 
-INCLUDES = -I ./includes -I ./lib/lib_arg_parsing/includes
+INCLUDES = -I includes
 
 FLAGS = -Wall -Wextra -Werror -fsanitize=address -g3
 
 OBJS = $(addprefix objs/, $(addsuffix .o, \
-			$(addprefix traceroute/, \
-				main \
+			$(addprefix lib_arg_parsing/, \
+				parse \
+				check \
+				init \
+				tools \
+				error \
+				users_func \
 				) \
 		)) 
 
-LIBS = ./lib/lib_arg_parsing/lib_arg_parsing.a
-
 CC = gcc
 
-HEADERS = ./includes/ft_traceroute.h
+HEADERS = ./includes/lib_arg_parsing_internal.h
 
 all: $(NAME)
 
-$(NAME): libs objs $(OBJS) $(HEADERS)
+$(NAME): objs $(OBJS) $(HEADERS)
 	@printf "\033[92m\033[1:32mCompiling -------------> \033[91m$(NAME)\033[0m:\033[0m%-16s\033[32m[✔]\033[0m\n"
-	@$(CC) $(FLAGS) $(INCLUDES) $(OBJS) $(LIBS) -o $(NAME) 
+	@ar rcs $(NAME) $(OBJS)
+
 objs/%.o: srcs/%.c
 	@printf  "\033[1:92mCompiling $(NAME)\033[0m %-31s\033[32m[$<]\033[0m\n" ""
-	@$(CC) -o $@ -c $< $(LIBS) $(FLAGS) $(INCLUDES) -fPIC
+	@$(CC) -o $@ -c $< $(FLAGS) -fPIC $(INCLUDES)
 	@printf "\033[A\033[2K"
 
-libs:
-	@make -C lib/lib_arg_parsing
-
 objs:
-	@mkdir -p objs/traceroute
-	@mkdir -p objs/parsing
+	@mkdir -p objs/lib_arg_parsing
 
 clean:
 	@printf  "\033[1:32mCleaning object files -> \033[91m$(NAME)\033[0m\033[1:32m:\033[0m%-16s\033[32m[✔]\033[0m\n"

@@ -235,6 +235,5 @@ int args_parsing(struct s_env *env, int ac, char **av)
 			return retval;
 		i++;
 	}
-	if (env->
 	return SUCCESS;
 }
