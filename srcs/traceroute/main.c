@@ -37,6 +37,7 @@ static int		init_env(struct s_env *env)
 	env->args.send_wait = DEFAULT_SEND_WAIT;
 	env->args.protocol_type = DEFAULT_PROTOCOL;
 	env->args.answer_timeout = DEFAULT_ANSWER_TIMEOUT;
+	env->ident = (uint16_t)getpid();
 	return SUCCESS;
 }
 
@@ -98,18 +99,118 @@ int	resolve_host_icmp(struct s_env *env)
 
 }
 
+void	fill_header_icmp(struct s_env *env, char *buffer)
+{
+	struct icmp4_hdr *hdr = (struct icmp4_hdr *)buffer;
+
+	hdr->msg_type = ECHO_REQUEST;
+	hdr->ident = env->ident;
+	hdr->sequence = env->seq;
+}
+
+void	fill_garbage(char *buffer, size_t bufsize, int offset)
+{
+	unsigned char val = 0x40 + offset;
+	size_t i = 0;
+
+	while (i < bufsize) {
+		if (val > 0x7F)
+			val = 0x40;
+		buffer[i] = val;
+		val++;
+		i++;
+	}
+}
+
+void	fill_buffer_timeval(struct s_env *env, char *buffer) // never call if no space
+{
+	struct timeval* time = (struct timeval*)buffer;
+
+	gettimeofday(time, NULL);
+	memcpy(&env->sent, time, sizeof(struct timeval));
+}
+
+void	fill_buffer(struct s_env *env, char *buffer, size_t bufsize)
+{
+	size_t offset = 0;
+	if (bufsize > sizeof(struct timeval)) {
+		fill_buffer_timeval(env, buffer);
+		offset += sizeof(struct timeval);
+	}
+	fill_garbage(buffer + offset, bufsize - offset, offset);
+}
+
+int			compute_checksum(char *buffer, size_t buffsize)
+{
+	struct icmp4_hdr *hdr = (struct icmp4_hdr*)buffer;
+	size_t buffsize_uint16 = buffsize / 2;
+	uint16_t *buf = (uint16_t*)buffer;
+	uint32_t checksum = 0;
+	size_t i;
+
+	if (buffsize == 0)
+		return 0;
+	for(i = 0; i < buffsize_uint16; i++)
+		checksum += buf[i];
+	if (buffsize % 2)
+		checksum += ((uint16_t)buffer[buffsize - 1]);
+	// folding checksum to get an uint16_t back
+	checksum = (checksum & 0xffff) + (checksum >> 16);
+	hdr->checksum = ~checksum;
+	return 1;
+}
+
+void	fill_message_icmp(struct s_env *env, char *buffer, size_t bufsize)
+{
+	bzero(buffer, bufsize);
+	fill_header_icmp(env, buffer);
+	fill_buffer(env, buffer + ICMP_HDR_SIZE, bufsize - ICMP_HDR_SIZE);
+	compute_checksum(buffer, bufsize);
+}
+
+void	dump_buffer(char *buffer, size_t size)
+{
+	size_t i = 0;
+	while (i < size) {
+		printf("%.2hhx", buffer[i]);
+		if (i % 2)
+			printf(" ");
+		if (i % 15 == 0 && i != 0)
+			printf("\n");
+		i++;
+	}
+	printf("\n");
+}
+
+void	print_first_line(struct s_env *env) {
+	printf("traceroute to %s (%s), %hhu hops max. %u byte packet\n", env->args.dest, inet_ntoa(env->daddr.sin_addr), env->args.max_ttl, env->args.packet_len);
+}
+
 int	traceroute_icmp(struct s_env *env)
 {
 	char buffer[ICMP_HDR_SIZE + DATA_SIZE];
+	int retval = 0;
 
 	if (open_icmp_socket(env) != SUCCESS)
 		return ERROR;
 	if (resolve_host_icmp(env) != SUCCESS)
 		return ERROR;
-	printf("traceroute to %s (%s), %hhu hops max. %u byte packet\n", env->args.dest, inet_ntoa(env->daddr.sin_addr), env->args.max_ttl, env->args.packet_len);
-	(void)env;
-	(void)buffer;
-	return 0;
+	if (env->args.protocol.icmp.init_sequence == 0)
+		env->seq = 1;
+	else
+		env->seq = env->args.protocol.icmp.init_sequence;
+	if (env->args.packet_len < 28)
+		env->args.packet_len = IPV4_HDR_SIZE + ICMP_HDR_SIZE;
+	print_first_line(env);
+	fill_message_icmp(env, buffer, env->args.packet_len - IPV4_HDR_SIZE);
+	setsockopt(env->sock, IPPROTO_IP, IP_TTL, &env->args.start_ttl, sizeof(env->args.start_ttl));
+//	dump_buffer(buffer, ICMP_HDR_SIZE + env->args.packet_len);
+	retval = sendto(env->sock, buffer, env->args.packet_len - IPV4_HDR_SIZE, 0, (struct sockaddr*)&env->daddr, sizeof(env->daddr));
+	if (retval < 0) {
+		printf("%s: error : %s\n", env->progname, strerror(errno));
+		return ERROR;
+	}
+	return SUCCESS;
 }
 
 int	traceroute(struct s_env *env)

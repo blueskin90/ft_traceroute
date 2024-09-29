@@ -18,6 +18,9 @@
 #define IPV4_HDR_SIZE 20
 #define ICMP_HDR_SIZE 8
 
+#define ECHO_REQUEST 8
+#define ECHO_REPLY 0
+
 #define ICMP_TTL_EXCEEDED 11
 #define ICMP_DEST_UNREACHABLE 3
 
@@ -40,18 +43,38 @@ enum e_protocol {
 // handled flags: -m max ttl, -q nbre packet par ttl, -f first number of ttl, -w temps dattente dun retour (default 500 ms), -z temps d'attente entre l'envoi de chaque packet (default inconnu), maybe --mtu 
 // optional packet_len uint64_t but max is DATA_SIZE
 
+struct icmp4_hdr_notime {
+	uint8_t	msg_type;
+	uint8_t	code;
+	uint16_t checksum;
+	uint16_t ident;
+	uint16_t sequence;
+	char data[];
+};
+
+struct icmp4_hdr {
+	uint8_t	msg_type;
+	uint8_t	code;
+	uint16_t checksum;
+	uint16_t ident;
+	uint16_t sequence;
+	struct timeval time;
+	char data[];
+};
+
 struct s_icmp {
-	uint8_t msg_type;	
+	uint16_t init_sequence;
+	uint16_t msg_type;	
 };
 
 struct s_tcp {
-	int sport;
-	int dport;
+	uint16_t dport;
+	uint16_t sport;
 };
 
 struct s_udp {
-	int sport;
-	int dport;
+	uint16_t dport;
+	uint16_t sport;
 };
 
 union u_protocol {
@@ -75,6 +98,9 @@ struct s_args {
 
 struct s_env
 {
+	struct timeval sent;
+	uint16_t seq;
+	uint16_t ident;
 	char *progname;
 	struct sockaddr_in daddr;
 	struct s_args args;
