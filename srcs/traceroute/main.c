@@ -148,6 +148,7 @@ int			compute_checksum(char *buffer, size_t buffsize)
 	uint32_t checksum = 0;
 	size_t i;
 
+	hdr->checksum = 0;
 	if (buffsize == 0)
 		return 0;
 	for(i = 0; i < buffsize_uint16; i++)
@@ -186,10 +187,47 @@ void	print_first_line(struct s_env *env) {
 	printf("traceroute to %s (%s), %hhu hops max. %u byte packet\n", env->args.dest, inet_ntoa(env->daddr.sin_addr), env->args.max_ttl, env->args.packet_len);
 }
 
+void	do_icmp_modifications(char *buffer, struct s_env *env) {
+	struct icmp4_hdr *hdr = (struct icmp4_hdr *)buffer;
+
+	hdr->sequence = htons(env->seq);
+	if (env->args.packet_len - IPV4_HDR_SIZE - ICMP_HDR_SIZE > sizeof(struct timeval)) {
+		fill_buffer_timeval(env, buffer + ICMP_HDR_SIZE);
+	}
+	compute_checksum(buffer, env->args.packet_len - IPV4_HDR_SIZE);
+}
+
+int	do_hop_icmp(char *buffer, struct s_env *env) {
+	int retval = 0;
+	int msg_to_send = env->args.probe_per_hop;
+	int should_send = 1;
+
+	setsockopt(env->sock, IPPROTO_IP, IP_TTL, &env->actual_hop, sizeof(env->actual_hop));
+
+	while (msg_to_send > 0) {
+		if (should_send) {
+			do_icmp_modifications(buffer, env);
+			retval = sendto(env->sock, buffer, env->args.packet_len - IPV4_HDR_SIZE, 0, (struct sockaddr*)&env->daddr, sizeof(env->daddr));
+			if (retval < 0) {
+				printf("%s: error : %s\n", env->progname, strerror(errno));
+				return ERROR;
+			}
+			env->seq++;
+			msg_to_send--;
+			if (env->args.send_wait != 0) {
+				should_send = 0;
+				send_wait_ms = env->args.send_wait;
+			}
+		}
+		// voir comment faire le wait entre les send + la reception en meme temps + le timeout
+	}
+	env->actual_hop++;
+	return SUCCESS;
+}
+
 int	traceroute_icmp(struct s_env *env)
 {
 	char buffer[ICMP_HDR_SIZE + DATA_SIZE];
-	int retval = 0;
 
 	if (open_icmp_socket(env) != SUCCESS)
 		return ERROR;
@@ -199,17 +237,14 @@ int	traceroute_icmp(struct s_env *env)
 		env->seq = 1;
 	else
 		env->seq = env->args.protocol.icmp.init_sequence;
-	if (env->args.packet_len < 28)
+	if (env->args.packet_len < IPV4_HDR_SIZE + ICMP_HDR_SIZE)
 		env->args.packet_len = IPV4_HDR_SIZE + ICMP_HDR_SIZE;
+	env->actual_hop = env->args.start_ttl;
+
 	print_first_line(env);
 	fill_message_icmp(env, buffer, env->args.packet_len - IPV4_HDR_SIZE);
-	setsockopt(env->sock, IPPROTO_IP, IP_TTL, &env->args.start_ttl, sizeof(env->args.start_ttl));
-//	dump_buffer(buffer, ICMP_HDR_SIZE + env->args.packet_len);
-	retval = sendto(env->sock, buffer, env->args.packet_len - IPV4_HDR_SIZE, 0, (struct sockaddr*)&env->daddr, sizeof(env->daddr));
-	if (retval < 0) {
-		printf("%s: error : %s\n", env->progname, strerror(errno));
-		return ERROR;
-	}
+	do_hop_icmp(buffer, env);
+	do_hop_icmp(buffer, env);
 	return SUCCESS;
 }
 

@@ -98,6 +98,7 @@ struct s_args {
 
 struct s_env
 {
+	uint8_t actual_hop;
 	struct timeval sent;
 	uint16_t seq;
 	uint16_t ident;
