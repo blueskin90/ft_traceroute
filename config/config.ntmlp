@@ -24,7 +24,7 @@ flag:
 	type: uint16_t
 	min: 1
 	default: 0
-	desc: For UDP tracing, specifies the destination port base traceroute will use (the destination port number will be incremented by each probe). For ICMP tracing, specifies the initial ICMP sequence value (incremented by each probe too). For TCP and others specifies just the (constant) destination port to connect. When using the tcptraceroute wrapper, -p specifies the source port.
+	desc: For UDP tracing, specifies the destination port base traceroute will use (the destination port number will be incremented by each probe). For ICMP tracing, specifies the initial ICMP sequence value (incremented by each probe too). For TCP and others specifies just the (constant) destination port to connect.
 	-
 	short: q
 	long: queries
