@@ -216,7 +216,7 @@ int	do_hop_icmp(char *buffer, struct s_env *env) {
 			msg_to_send--;
 			if (env->args.send_wait != 0) {
 				should_send = 0;
-				send_wait_ms = env->args.send_wait;
+				//send_wait_ms = env->args.send_wait;
 			}
 		}
 		// voir comment faire le wait entre les send + la reception en meme temps + le timeout
