@@ -18,9 +18,7 @@ INCLUDES = -I ./includes -I ./lib/lib_arg_parsing/includes
 FLAGS = -Wall -Wextra -Werror -fsanitize=address -g3
 
 OBJS = $(addprefix objs/, $(addsuffix .o, \
-			$(addprefix traceroute/, \
 				main \
-				) \
 		)) 
 
 LIBS = ./lib/lib_arg_parsing/lib_arg_parsing.a
