@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h> // for the free ...
 #include <unistd.h>
+#include <stdio.h>
 
 static int	init_params(struct s_params *params)
 {
@@ -40,24 +41,32 @@ static int	parsing(int ac, char **av, struct s_params *params)
 
 int	traceroute_icmp(struct s_env *env, struct s_params *params)
 {
+	(void)env;
+	(void)params;
 	printf("to implement !");
 	return FAILURE;
 }
 
 int	traceroute_tcp(struct s_env *env, struct s_params *params)
 {
+	(void)env;
+	(void)params;
 	printf("tcp to implement !");
 	return FAILURE;
 }
 
 int	traceroute_udp(struct s_env *env, struct s_params *params)
 {
+	(void)env;
+	(void)params;
 	printf("udp to implement !");
 	return FAILURE;
 }
 
 int	traceroute_udp_fixed_port(struct s_env *env, struct s_params *params)
 {
+	(void)env;
+	(void)params;
 	printf("udp fixed ports to implement !");
 	return FAILURE;
 }
