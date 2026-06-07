@@ -1,0 +1,4 @@
+tags
+lib/lib_arg_parsing/objs/
+lib/lib_arg_parsing/lib_arg_parsing.a
+*.sw*
