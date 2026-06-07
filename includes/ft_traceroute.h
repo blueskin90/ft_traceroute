@@ -34,14 +34,13 @@ enum e_protocol {
 #define DEFAULT_MAX_TTL 30
 #define DEFAULT_START_TTL 1
 #define DEFAULT_PROBE_PER_HOP 3
-#define DEFAULT_ANSWER_TIMEOUT 500;
-#define DEFAULT_SEND_WAIT 50;
+#define DEFAULT_ANSWER_TIMEOUT_MS 5000;
+#define DEFAULT_HERE_VALUE 3.0;
+#define DEFAULT_SEND_NEAR 10.0;
 #define DEFAULT_PROTOCOL ICMP;
+#define DEFAULT_SEND_WAIT 0;
 
 #define MTU_FLAG 0x1
-
-// handled flags: -m max ttl, -q nbre packet par ttl, -f first number of ttl, -w temps dattente dun retour (default 500 ms), -z temps d'attente entre l'envoi de chaque packet (default inconnu), maybe --mtu 
-// optional packet_len uint64_t but max is DATA_SIZE
 
 struct icmp4_hdr_notime {
 	uint8_t	msg_type;

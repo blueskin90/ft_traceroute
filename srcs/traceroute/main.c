@@ -7,6 +7,7 @@
 #include <limits.h>
 #include "lib_arg_parsing.h"
 #include <sys/socket.h>
+#include <ctype.h>
 
 void			dump_env(struct s_env *env)
 {
@@ -36,7 +37,7 @@ static int		init_env(struct s_env *env)
 	env->args.probe_per_hop = DEFAULT_PROBE_PER_HOP;
 	env->args.send_wait = DEFAULT_SEND_WAIT;
 	env->args.protocol_type = DEFAULT_PROTOCOL;
-	env->args.answer_timeout = DEFAULT_ANSWER_TIMEOUT;
+	env->args.answer_timeout = DEFAULT_ANSWER_TIMEOUT_MS;
 	env->ident = (uint16_t)getpid();
 	return SUCCESS;
 }
@@ -169,20 +170,6 @@ void	fill_message_icmp(struct s_env *env, char *buffer, size_t bufsize)
 	compute_checksum(buffer, bufsize);
 }
 
-void	dump_buffer(char *buffer, size_t size)
-{
-	size_t i = 0;
-	while (i < size) {
-		printf("%.2hhx", buffer[i]);
-		if (i % 2)
-			printf(" ");
-		if (i % 15 == 0 && i != 0)
-			printf("\n");
-		i++;
-	}
-	printf("\n");
-}
-
 void	print_first_line(struct s_env *env) {
 	printf("traceroute to %s (%s), %hhu hops max. %u byte packet\n", env->args.dest, inet_ntoa(env->daddr.sin_addr), env->args.max_ttl, env->args.packet_len);
 }
@@ -195,6 +182,30 @@ void	do_icmp_modifications(char *buffer, struct s_env *env) {
 		fill_buffer_timeval(env, buffer + ICMP_HDR_SIZE);
 	}
 	compute_checksum(buffer, env->args.packet_len - IPV4_HDR_SIZE);
+}
+
+void	dump_message(char *buffer, int size) {
+	struct icmp4_hdr *hdr = (struct icmp4_hdr*)(buffer + IPV4_HDR_SIZE);
+	size -= IPV4_HDR_SIZE;
+
+	printf("msg type: %hhd\n", hdr->msg_type);	
+	printf("msg code: %hhd\n", hdr->code);	
+	printf("msg checksum: %hx\n", hdr->checksum);	
+	printf("msg ident: %hx\n", hdr->ident);	
+	printf("msg sequence: %hx\n", hdr->sequence);	
+	printf("\n");	
+}
+
+int	recv_msg(struct s_env *env) {
+	char packet[MSG_SIZE];
+	int size;	
+
+	size = recv(env->sock, packet, MSG_SIZE, 0);
+	while (size >= 0) {
+		dump_message(packet, size);		
+		size = recv(env->sock, packet, MSG_SIZE, 0);
+	}
+	return 1;
 }
 
 int	do_hop_icmp(char *buffer, struct s_env *env) {
@@ -218,9 +229,10 @@ int	do_hop_icmp(char *buffer, struct s_env *env) {
 				should_send = 0;
 				//send_wait_ms = env->args.send_wait;
 			}
-		}
+		}	
 		// voir comment faire le wait entre les send + la reception en meme temps + le timeout
 	}
+	recv_msg(env);
 	env->actual_hop++;
 	return SUCCESS;
 }
