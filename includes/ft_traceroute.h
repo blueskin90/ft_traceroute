@@ -2,6 +2,11 @@
 # define FT_TRACEROUTE_H
 
 #include <stdint.h>
+#include <sys/time.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 struct iphdr {
     	#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
@@ -32,7 +37,7 @@ enum e_status{
 #define DEFAULT_MAX_TTL 30
 #define DEFAULT_FIRST_TTL 1
 #define DEFAULT_PROBE_PER_HOP 3
-#define DEFAULT_PROBE_NUMBER 16
+#define DEFAULT_PROBE_BURST 16
 #define DEFAULT_STANDARD_UDP_DEST_PORT 33434
 #define DEFAULT_CONSTANT_UDP_DEST_PORT 53
 #define DEFAULT_CONSTANT_TCP_DEST_PORT 80
@@ -45,6 +50,7 @@ enum e_status{
 #define DEFAULT_PACKET_LEN 40 + sizeof(struct iphdr)
 
 struct s_flags {
+	uint8_t back:1; /* --back estimate the return ttl based on 64, 128 or 255 if different from sent ttl */
 	uint8_t no_host:1; /* -n do not map host to ip */
 	uint8_t icmp:1; /* -I forced icmp */
 	uint8_t tcp:1; /* -T forced tcp*/
@@ -55,7 +61,7 @@ struct s_params {
 	uint8_t max_ttl; /* -m max ttl, it will emit until this value if the target doesnt answer */
 	uint8_t first_ttl; /* -f the first ttl value */
 	uint8_t probe_per_hop; /* -q number of probes per hop */
-	uint8_t probe_number; /* -N number of probes sent at the same time */
+	uint8_t probe_burst; /* -N number of probes sent at the same time */
 	uint16_t dest_port;
 	/*
 	** -p for ICMP, initial sequence number incremented with each probe
@@ -73,10 +79,52 @@ struct s_params {
 	uint32_t packet_len; /* optional argument at the end, count the ip header in */
 };
 // also handle -V / --version and --help
+
+struct s_probe {
+	/* init values */
+	uint8_t hop_num;
+	char first_in_hop:1;
+	char last_in_hop:1;
+	int seq;
+	uint8_t sent_ttl;
+	/* emission values */
+	struct timeval sent_time;
+	char sent:1;
+	/* reception value */
+	char done:1;
+	char recv_answer:1;
+	char timeout:1;
+	char is_host:1;
+	uint8_t recv_ttl;
+	struct timeval recv_time;
+	uint32_t recv_addr; // address who sent us the answer
+/*
+struct timeval {
+	time_t      tv_sec;
+	suseconds_t tv_usec;
+};
+*/
+};
+
 struct s_env
 {
+	char hop_number;
+	int probe_number;
+
+	// for debug
+	int probes_sent;
+	int probes_waiting;
+	int probes_received;
+	int probes_timeouted; 
+
+	uint8_t done_sending:1;
+	uint8_t done_printing:1;
+	uint8_t found_host:1;
+	struct s_probe *probes;
+	int sockfd;
 	char *prog;
 	uint16_t pid;
+	struct sockaddr_in dest_addr;
 };
 
 # endif /* FT_TRACEROUTE_H */
