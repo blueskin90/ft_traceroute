@@ -38,7 +38,6 @@ static int	parsing(int ac, char **av, struct s_params *params)
 	params->flags.icmp = 1;
 	params->dest_port = DEFAULT_ICMP_SEQ;
 	params->host = strdup("google.com"); // for temporary test without parsing
-	params->send_wait = 1;
 	//params->host = strdup("8.8.8.8"); // for temporary test without parsing
 	// consider ./ft_traceroute -I 8.8.8.8
 	// disallow any combination of flags for icmp / tcp / udp
@@ -134,10 +133,7 @@ void	set_next_send(struct timeval *sent_time, struct timeval *next_send, float s
 		to_add.tv_sec = nsec;
 		to_add.tv_usec = (send_wait - (float)nsec) * 1000000;
 	}	
-	printf("we sent at %ld secs %ld usecs\n", sent_time->tv_sec, sent_time->tv_usec);
-	printf("next send is in %ld secs %ld usecs\n", to_add.tv_sec, to_add.tv_usec);
 	add_timeval(sent_time, &to_add, next_send);
-	printf("next send is at %ld secs %ld usecs\n", next_send->tv_sec, next_send->tv_usec);
 }
 
 /* tv1 == now, tv2 == limit
@@ -173,16 +169,19 @@ int	send_probes(struct s_env *env, struct s_params *params)
 		}
 		if (should_wait(&next_send, &now)) {
 			return SUCCESS;
-		} 
+		}
 	}
-	printf(" sending probe %d\n", to_send);
 	probe = &env->probes[to_send];
+	/*
+	printf(" sending probe %d\n", to_send);
 	printf(" sending probe for hop %hhd:", probe->hop_num); 
 	if (probe->first_in_hop)
 		printf("  It is the FIRST of its hop.\n");
 	if (probe->last_in_hop)
 		printf("  It is the LAST of its hop.\n");
 	printf("  Its seq is: %d and its sent_ttl is %d\n", probe->seq, probe->sent_ttl);
+	*/
+
 	// build and send message
 	// maybe set the sent_time when sent in this func
 
@@ -193,7 +192,6 @@ int	send_probes(struct s_env *env, struct s_params *params)
 	}
 
 	probe->sent = 1;
-	printf("  probe sent !\n");
 
 	if (params->send_wait > 0) {
 		set_next_send(&probe->sent_time, &next_send, params->send_wait);
@@ -213,10 +211,95 @@ int	receive_probes(struct s_env *env, struct s_params *params)
 	return SUCCESS;
 }
 
+void	get_max_timeout(struct timeval *send_time, float timeout_sec, struct timeval *timeout) {
+	struct timeval to_add;
+	int nsec;
+
+	nsec = (int)timeout_sec;
+	to_add.tv_sec = nsec;
+	to_add.tv_usec = (timeout_sec - (float)nsec) * 1000000;
+	add_timeval(send_time, &to_add, timeout);
+}
+
+void	get_timeout_factor(struct timeval *send_time, struct timeval *rtt, float factor, struct timeval *result)
+{
+	(void)send_time;
+	(void)rtt;
+	(void)factor;
+	(void)result;
+}
+
+void	get_smallest_timeout(struct s_probe *probe, int idx_probe, struct timeval *result, struct s_env *env, struct s_params *params)
+{
+	struct timeval max_timeout;
+	struct timeval here_timeout;
+	struct timeval near_timeout;
+
+	struct timeval here_rtt;
+	struct timeval near_rtt;
+	// should init here_rtt and near_rtt;
+
+	(void)idx_probe;
+	(void)env;
+
+	get_timeout_factor(&probe->sent_time, &here_rtt, params->here_factor, &here_timeout);
+	get_timeout_factor(&probe->sent_time, &near_rtt, params->near_factor, &near_timeout);
+	get_max_timeout(&probe->sent_time, params->max_timeout, &max_timeout);
+
+	// should find which is the smallest return max for the moment
+	memcpy(result, &max_timeout, sizeof(*result));
+}
+
+int	check_timeout_probe(struct s_probe *probe, int idx_probe, struct s_env *env, struct s_params *params) {
+	// check if timeouted and set done + timeout in case
+	(void)idx_probe;
+
+	int retval;
+	struct timeval now;
+	struct timeval timeout;
+
+	// replace with get_smallest_timeout later that return the smallest between neaf, here and max;
+	get_smallest_timeout(probe, idx_probe, &timeout, env, params);
+	retval = gettimeofday(&now, NULL);
+	if (retval != SUCCESS) {
+		printf("couldnt get time of day\n");
+		return FAILURE;
+	}
+	if (should_wait(&timeout, &now)) {
+		return SUCCESS;
+	}
+	env->probes_waiting--;
+	env->probes_timeouted++;
+	probe->done = 1;
+	probe->timeout = 1;
+	return SUCCESS;
+}
+
 int	timeout_probes(struct s_env *env, struct s_params *params)
 {
-	(void)env;
-	(void)params;
+	static int to_check = 0;
+	int idx_check = to_check;
+	struct s_probe *probe;
+	int retval;
+
+	while (idx_check < env->probe_number) {
+		probe = &(env->probes[idx_check]);
+		if (probe->sent == 0)
+			return SUCCESS;
+
+		retval = check_timeout_probe(probe, idx_check, env, params);
+		if (retval != SUCCESS)
+			return FAILURE;
+
+		if (probe->done && to_check == idx_check) {
+			to_check++; // increment for next check
+			if (probe->last_in_hop && probe->is_host) {
+				env->done_timeout = 1;
+				return SUCCESS;
+			}
+		}
+		idx_check++;
+	}
 	return SUCCESS;
 }
 
@@ -238,7 +321,7 @@ int	print_probes(struct s_env *env, struct s_params *params)
 		if (probe->done == 0)
 			return SUCCESS;
 		if (probe->first_in_hop)
-			printf("%.*hhd ", number_size, probe->sent_ttl);
+			printf("%*hhd ", number_size, probe->sent_ttl);
 		printf("* "); // case timeout, for test purpose
 		// should print infos
 		if (probe->last_in_hop) {
@@ -248,6 +331,7 @@ int	print_probes(struct s_env *env, struct s_params *params)
 		}
 		to_print++;
 	}
+	env->done_printing = 1;
 	return SUCCESS;
 }
 
@@ -256,12 +340,24 @@ int	traceroute_icmp(struct s_env *env, struct s_params *params)
 	(void)env;
 	(void)params;
 	int running = 1;
+	int retval;
 	
 	while (running) {
-		if (env->done_sending == 0)
-			send_probes(env, params);
-		receive_probes(env, params);
-		timeout_probes(env, params);
+		if (env->done_sending == 0) {
+			retval = send_probes(env, params);
+			if (retval != SUCCESS)
+				return FAILURE;
+		}
+		if (env->done_receiving == 0) {
+			retval = receive_probes(env, params);
+			if (retval != SUCCESS)
+				return FAILURE;
+		}
+		if (env->done_timeout == 0) {
+			retval = timeout_probes(env, params);
+			if (retval != SUCCESS)
+				return FAILURE;
+		}
 		if (env->done_printing == 0)
 			print_probes(env, params);
 		if (env->done_printing == 1)

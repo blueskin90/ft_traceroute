@@ -118,6 +118,8 @@ struct s_env
 	int probes_timeouted; 
 
 	uint8_t done_sending:1;
+	uint8_t done_timeout:1;
+	uint8_t done_receiving:1;
 	uint8_t done_printing:1;
 	uint8_t found_host:1;
 	struct s_probe *probes;
