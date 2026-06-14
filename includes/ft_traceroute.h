@@ -155,4 +155,7 @@ void	add_timeval(struct timeval *tv1, struct timeval *tv2, struct timeval *resul
 void	mult_timeval(struct timeval *tv, float factor, struct timeval *result);
 int	cmp_timeval(struct timeval *tv1, struct timeval *tv2);
 
+/* Timeout functions */
+
+void	get_smallest_timeout(struct s_probe *probe, struct timeval *result, struct s_env *env, struct s_params *params);
 # endif /* FT_TRACEROUTE_H */
