@@ -496,6 +496,21 @@ int	traceroute(struct s_env *env, struct s_params *params)
 		return traceroute_udp(env, params);
 }
 
+// need to do all of this becase "FCNTL FORBIDDEN GNEUGNEUGNEU so no non blocking reads.
+int	set_sock_timeout(int sockfd) {
+	struct timeval tv;
+
+	tv.tv_sec = 0;           // 0 seconds
+	tv.tv_usec = 1;     // 1 microseconds (0,001 millisecond)
+
+	// Set the timeout option on the socket
+	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+		perror("Error setting timeout");
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 #include <errno.h>
 int	init_socket(struct s_env *env, struct s_params *params)
 {
@@ -507,6 +522,8 @@ int	init_socket(struct s_env *env, struct s_params *params)
 		printf("Couldn't create the socket: %s\n", strerror(errno));
 		return FAILURE;
 	}
+	if (set_sock_timeout(env->sockfd) != SUCCESS)
+		return FAILURE;
 	return SUCCESS;
 }
 
