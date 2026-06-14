@@ -19,6 +19,7 @@ FLAGS = -Wall -Wextra -Werror -fsanitize=address -g3
 
 OBJS = $(addprefix objs/, $(addsuffix .o, \
 				main \
+				timeval_ops \
 		)) 
 
 LIBS = ./lib/lib_arg_parsing/lib_arg_parsing.a

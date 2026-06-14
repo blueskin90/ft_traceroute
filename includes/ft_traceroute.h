@@ -147,4 +147,12 @@ struct s_env
 	struct sockaddr_in dest_addr;
 };
 
+/* Timeval functions */
+
+
+int	sub_timeval(struct timeval *tv1, struct timeval *tv2, struct timeval *result);
+void	add_timeval(struct timeval *tv1, struct timeval *tv2, struct timeval *result);
+void	mult_timeval(struct timeval *tv, float factor, struct timeval *result);
+int	cmp_timeval(struct timeval *tv1, struct timeval *tv2);
+
 # endif /* FT_TRACEROUTE_H */
