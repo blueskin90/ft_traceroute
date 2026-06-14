@@ -38,6 +38,7 @@ static int	parsing(int ac, char **av, struct s_params *params)
 	params->flags.icmp = 1;
 	params->dest_port = DEFAULT_ICMP_SEQ;
 	params->host = strdup("google.com"); // for temporary test without parsing
+	params->send_wait = 1;
 	//params->host = strdup("8.8.8.8"); // for temporary test without parsing
 	// consider ./ft_traceroute -I 8.8.8.8
 	// disallow any combination of flags for icmp / tcp / udp
@@ -86,7 +87,7 @@ int	init_probes(struct s_env *env, struct s_params *params)
 **	if tv1 > tv2: 1 
 */	
 // sec -> ms == secs * 1000; ms -> us == ms * 1000; secs -> us == secs * 1 000 000
-int	substract_timeval(struct timeval *tv1, struct timeval *tv2, struct timeval *result)
+int	sub_timeval(struct timeval *tv1, struct timeval *tv2, struct timeval *result)
 {
 	result->tv_sec = tv1->tv_sec - tv2->tv_sec;
 	result->tv_usec = tv1->tv_usec - tv2->tv_usec;
@@ -117,6 +118,39 @@ void	add_timeval(struct timeval *tv1, struct timeval *tv2, struct timeval *resul
 	}
 }
 
+void	mult_timeval(struct timeval *tv, float factor, struct timeval *result)
+{
+	float result_sec = tv->tv_sec * factor;
+	float result_usec = tv->tv_usec * factor;
+	
+	result->tv_sec = (int)result_sec;
+
+	result_sec -= result->tv_sec;
+	result_usec += result_sec * 1000000;
+
+	if (result_usec >= 1000000) {
+		int nbsec = result_usec / 1000000;
+
+		result->tv_sec += nbsec;
+		result_usec -= nbsec * 1000000;
+	}
+	result->tv_usec = result_usec;
+}
+
+/* returns -1 if tv1 is bigger (more recent) than tv2, 1 if tv2 is bigger than tv1, 0 otherwise */
+int	cmp_timeval(struct timeval *tv1, struct timeval *tv2)
+{
+	if (tv1->tv_sec < tv2->tv_sec)
+		return 1;
+	if (tv1->tv_sec > tv2->tv_sec)
+		return -1;
+	if (tv1->tv_usec < tv2->tv_usec)
+		return 1;
+	if (tv1->tv_usec > tv2->tv_usec)
+		return -1;
+	return 0;
+}
+
 void	set_next_send(struct timeval *sent_time, struct timeval *next_send, float send_wait)
 {
 	struct timeval to_add;
@@ -141,13 +175,10 @@ void	set_next_send(struct timeval *sent_time, struct timeval *next_send, float s
 ** if now == limit return 0
 ** if now < limit return 1
 */
-int	should_wait(struct timeval *limit, struct timeval *now)
+int	should_wait(struct timeval *now, struct timeval *limit)
 {
-	struct timeval result;
-
-	if (substract_timeval(now, limit, &result) >= 0) {
+	if (cmp_timeval(now, limit) <= 0)
 		return 0; 
-	}
 	return 1;
 }
 
@@ -167,7 +198,7 @@ int	send_probes(struct s_env *env, struct s_params *params)
 			printf("couldnt get time of day\n");
 			return FAILURE;
 		}
-		if (should_wait(&next_send, &now)) {
+		if (should_wait(&now, &next_send)) {
 			return SUCCESS;
 		}
 	}
@@ -223,49 +254,105 @@ void	get_max_timeout(struct timeval *send_time, float timeout_sec, struct timeva
 
 void	get_timeout_factor(struct timeval *send_time, struct timeval *rtt, float factor, struct timeval *result)
 {
-	(void)send_time;
-	(void)rtt;
-	(void)factor;
-	(void)result;
+	struct timeval rtt_max;
+
+	mult_timeval(rtt, factor, &rtt_max);
+	add_timeval(send_time, &rtt_max, result);
 }
 
-void	get_smallest_timeout(struct s_probe *probe, int idx_probe, struct timeval *result, struct s_env *env, struct s_params *params)
+// returns 1 if there is a here rtt available
+int	get_here_rtt(struct s_env *env, struct s_params *params, struct s_probe *probe, struct timeval *here_rtt)
 {
+	int idx_first_probe = probe->hop_num * params->probe_per_hop;
+	int next_hop_first_probe = idx_first_probe + params->probe_per_hop;
+	struct s_probe *probe_ptr;
+	int idx;
+
+	for (idx = idx_first_probe; idx < next_hop_first_probe && idx < env->probe_number; idx++) {
+		probe_ptr = &(env->probes[idx]);
+		if (probe_ptr->recv_answer) {
+			sub_timeval(&probe_ptr->recv_time, &probe_ptr->sent_time, here_rtt);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// returns 1 if there is a here timeout available
+int	get_here_timeout(struct s_env *env, struct s_params *params, struct s_probe *probe, struct timeval *here_timeout)
+{
+	struct timeval here_rtt;
+
+	if (get_here_rtt(env, params, probe, &here_rtt) != 1)
+		return 0;
+	get_timeout_factor(&probe->sent_time, &here_rtt, params->here_factor, here_timeout);
+	return 1;
+} 
+
+// returns 1 if there is a near rtt available
+
+int	get_near_rtt(struct s_env *env, struct s_params *params, struct s_probe *probe, struct timeval *near_rtt)
+{
+	int idx_first_probe = probe->hop_num * params->probe_per_hop + params->probe_per_hop;
+	int next_hop_first_probe = idx_first_probe + params->probe_per_hop;
+	struct s_probe *probe_ptr;
+	int idx;
+
+	for (idx = idx_first_probe; idx < next_hop_first_probe && idx < env->probe_number; idx++) {
+		probe_ptr = &(env->probes[idx]);
+		if (probe_ptr->recv_answer) {
+			sub_timeval(&probe_ptr->recv_time, &probe_ptr->sent_time, near_rtt);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// returns 1 if there is a neare timeout available
+int	get_near_timeout(struct s_env *env, struct s_params *params, struct s_probe *probe, struct timeval *near_timeout)
+{
+	struct timeval near_rtt;
+
+	if (get_near_rtt(env, params, probe, &near_rtt) != 1)
+		return 0;
+	get_timeout_factor(&probe->sent_time, &near_rtt, params->near_factor, near_timeout);
+	return 1;
+} 
+
+void	get_smallest_timeout(struct s_probe *probe, struct timeval *result, struct s_env *env, struct s_params *params)
+{
+	int here_present;
+	int near_present;
 	struct timeval max_timeout;
 	struct timeval here_timeout;
 	struct timeval near_timeout;
+	struct timeval *smallest;
 
-	struct timeval here_rtt;
-	struct timeval near_rtt;
-	// should init here_rtt and near_rtt;
-
-	(void)idx_probe;
-	(void)env;
-
-	get_timeout_factor(&probe->sent_time, &here_rtt, params->here_factor, &here_timeout);
-	get_timeout_factor(&probe->sent_time, &near_rtt, params->near_factor, &near_timeout);
 	get_max_timeout(&probe->sent_time, params->max_timeout, &max_timeout);
+	smallest = &max_timeout;
 
-	// should find which is the smallest return max for the moment
-	memcpy(result, &max_timeout, sizeof(*result));
+	here_present = get_here_timeout(env, params, probe, &here_timeout);
+	near_present = get_near_timeout(env, params, probe, &near_timeout);
+	if (here_present && cmp_timeval(smallest, &here_timeout) == -1)
+		smallest = &here_timeout;
+	if (near_present && cmp_timeval(smallest, &near_timeout) == -1)
+		smallest = &near_timeout;
+	
+	memcpy(result, smallest, sizeof(*result));
 }
 
-int	check_timeout_probe(struct s_probe *probe, int idx_probe, struct s_env *env, struct s_params *params) {
-	// check if timeouted and set done + timeout in case
-	(void)idx_probe;
-
+int	check_timeout_probe(struct s_probe *probe, struct s_env *env, struct s_params *params) {
 	int retval;
 	struct timeval now;
 	struct timeval timeout;
 
-	// replace with get_smallest_timeout later that return the smallest between neaf, here and max;
-	get_smallest_timeout(probe, idx_probe, &timeout, env, params);
+	get_smallest_timeout(probe, &timeout, env, params);
 	retval = gettimeofday(&now, NULL);
 	if (retval != SUCCESS) {
 		printf("couldnt get time of day\n");
 		return FAILURE;
 	}
-	if (should_wait(&timeout, &now)) {
+	if (should_wait(&now, &timeout)) {
 		return SUCCESS;
 	}
 	env->probes_waiting--;
@@ -287,7 +374,7 @@ int	timeout_probes(struct s_env *env, struct s_params *params)
 		if (probe->sent == 0)
 			return SUCCESS;
 
-		retval = check_timeout_probe(probe, idx_check, env, params);
+		retval = check_timeout_probe(probe, env, params);
 		if (retval != SUCCESS)
 			return FAILURE;
 
@@ -337,8 +424,6 @@ int	print_probes(struct s_env *env, struct s_params *params)
 
 int	traceroute_icmp(struct s_env *env, struct s_params *params)
 {
-	(void)env;
-	(void)params;
 	int running = 1;
 	int retval;
 	
