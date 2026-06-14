@@ -317,10 +317,30 @@ int	send_probes(struct s_env *env, struct s_params *params)
 	return SUCCESS;
 }
 
-int	receive_probes(struct s_env *env, struct s_params *params)
-{
+int	parse_response(struct s_env *env, struct s_params *params, char *packet, int packetlen) {
 	(void)env;
 	(void)params;
+	(void)packet;
+	(void)packetlen;
+	return SUCCESS;
+}
+
+int	receive_probes(struct s_env *env, struct s_params *params)
+{
+	char packet[MAX_PACKET_BUFFER];
+	struct sockaddr addr;
+	socklen_t addrlen;
+	int retval;
+
+	bzero(&packet, MAX_PACKET_BUFFER);
+	retval = recvfrom(env->sockfd, packet, MAX_PACKET_BUFFER, MSG_DONTWAIT, &addr, &addrlen);
+	if (retval < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return SUCCESS;
+		printf("error when receiving\n");
+		return FAILURE;
+	}
+	parse_response(env, params, packet, retval);
 	return SUCCESS;
 }
 
@@ -580,6 +600,7 @@ int	traceroute(struct s_env *env, struct s_params *params)
 }
 
 // need to do all of this becase "FCNTL FORBIDDEN GNEUGNEUGNEU so no non blocking reads.
+// might need to delete it tho maybe useless
 int	set_sock_timeout(int sockfd) {
 	struct timeval tv;
 
