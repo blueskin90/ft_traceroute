@@ -422,11 +422,20 @@ int	print_probes(struct s_env *env, struct s_params *params)
 	return SUCCESS;
 }
 
+void	print_first_line(struct s_env *env, struct s_params *params)
+{
+	char ip_str[INET_ADDRSTRLEN];
+
+	inet_ntop(AF_INET, &(env->dest_addr.sin_addr), ip_str, INET_ADDRSTRLEN);
+	printf("traceroute to %s (%s), %hhd hops max, %d byte packets\n", params->host, ip_str, params->max_ttl, params->packet_len);
+}
+
 int	traceroute_icmp(struct s_env *env, struct s_params *params)
 {
 	int running = 1;
 	int retval;
 	
+	print_first_line(env, params);
 	while (running) {
 		if (env->done_sending == 0) {
 			retval = send_probes(env, params);
