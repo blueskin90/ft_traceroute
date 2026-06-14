@@ -8,6 +8,21 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#define ECHO_REQUEST 8
+#define ECHO_REPLY 0
+
+#define ICMP_TTL_EXCEEDED 11
+#define ICMP_DEST_UNREACHABLE 3
+
+struct icmp4_hdr {
+	uint8_t	msg_type;
+	uint8_t	code;
+	uint16_t checksum;
+	uint16_t ident;
+	uint16_t sequence;
+	char data[];
+};
+
 struct iphdr {
     	#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 		uint8_t ihl:4;
@@ -48,6 +63,9 @@ enum e_status{
 #define DEFAULT_SEND_WAIT 0
 
 #define DEFAULT_PACKET_LEN 40 + sizeof(struct iphdr)
+
+#define MAX_PACKET_BUFFER 256
+// to change
 
 struct s_flags {
 	uint8_t back:1; /* --back estimate the return ttl based on 64, 128 or 255 if different from sent ttl */

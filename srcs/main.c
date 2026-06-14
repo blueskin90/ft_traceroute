@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 
 static int	init_params(struct s_params *params)
@@ -38,7 +39,7 @@ static int	parsing(int ac, char **av, struct s_params *params)
 	params->flags.icmp = 1;
 	params->dest_port = DEFAULT_ICMP_SEQ;
 	params->host = strdup("google.com"); // for temporary test without parsing
-	params->send_wait = 1;
+	//params->send_wait = 1;
 	//params->host = strdup("8.8.8.8"); // for temporary test without parsing
 	// consider ./ft_traceroute -I 8.8.8.8
 	// disallow any combination of flags for icmp / tcp / udp
@@ -181,6 +182,95 @@ int	should_wait(struct timeval *now, struct timeval *limit)
 		return 0; 
 	return 1;
 }
+/*
+	0x0040:  acd9 162e 97c1 82b7 01ec 309f 4041 4243  ..........0.@ABC
+	0x0050:  4445 4647 4849 4a4b 4c4d 4e4f 5051 5253  DEFGHIJKLMNOPQRS
+	0x0060:  5455 5657 5859 5a5b 5c5d 5e5f 6061 6263  TUVWXYZ[\]^_`abc
+	0x0070:  6465 6667 6869 6a6b 6c6d 6e6f 7071 7273  defghijklmnopqrs
+	0x0080:  7475 7677 7879 7a7b 7c7d 7e7f 4041 4243  tuvwxyz{|}~.@ABC
+	0x0090:  4445 4647 4849 4a4b 4c4d 4e4f 5051 5253  DEFGHIJKLMNOPQRS
+	0x00a0:  5455 5657 5859 5a5b 5c5d 5e5f 6061 6263  TUVWXYZ[\]^_`abc
+	0x00b0:  6465 6667 6869 6a6b 6c6d 6e6f 7071 7273  defghijklmnopqrs
+	0x00c0:  7475 7677 7879 7a7b 7c7d 7e7f 4041 4243  tuvwxyz{|}~.@ABC
+	0x00d0:  4445 4647 4849 4a4b 4c4d 4e4f 5051 5253  DEFGHIJKLMNOPQRS
+	0x00e0:  5455 5657 5859 5a5b 5c5d 5e5f 6061 6263  TUVWXYZ[\]^_`abc
+	0x00f0:  6465 6667 6869 6a6b 6c6d 6e6f 7071 7273  defghijklmnopqrs
+	0x0100:  7475 7677 7879 7a7b 7c7d 7e7f 4041 4243  tuvwxyz{|}~.@ABC
+	0x0110:  4445 4647 4849 4a4b 4c4d 4e4f 5051 5253  DEFGHIJKLMNOPQRS
+	0x0120:  5455 5657 5859 5a5b 5c5d 5e5f 6061 6263  TUVWXYZ[\]^_`abc
+	0x0130:  6465 6667 6869 6a6b 6c6d 6e6f 7071 7273  defghijklmnopqrs
+
+filling pattern
+*/ 
+// the parsing assure the size is enough
+
+int	compute_checksum(char *buffer, size_t buffsize)
+{
+	struct icmp4_hdr *hdr = (struct icmp4_hdr*)buffer;
+	size_t buffsize_uint16 = buffsize / 2;
+	uint16_t *buf = (uint16_t*)buffer;
+	uint32_t checksum = 0;
+	size_t i;
+
+	if (buffsize == 0)
+		return 0;
+	for(i = 0; i < buffsize_uint16; i++)
+		checksum += buf[i];
+	if (buffsize % 2)
+		checksum += ((uint16_t)buffer[buffsize - 1]);
+	// folding checksum to get an uint16_t back
+	checksum = (checksum & 0xffff) + (checksum >> 16);
+	hdr->checksum = ~checksum;
+	return 1;
+}
+
+// to modify
+void	fill_buffer(char *buffer, int bufsize) {
+	int i = 0;
+
+	while (i < bufsize) {
+		buffer[i] = 'a';
+		i++;
+	}
+}
+
+void	fill_packet(struct s_probe *probe, char *buffer, int bufsize, struct s_env *env)
+{
+	struct icmp4_hdr *hdr = (struct icmp4_hdr *)buffer;
+
+	bzero(buffer, bufsize);
+	hdr->msg_type = ECHO_REQUEST;
+	hdr->ident = env->pid;
+	hdr->sequence = probe->seq;
+
+	fill_buffer(buffer + sizeof(struct icmp4_hdr), bufsize - sizeof(struct icmp4_hdr));
+	compute_checksum(buffer, bufsize);
+}
+
+int	send_probe_message(struct s_probe *probe, struct s_env *env, struct s_params *params)
+{
+	int retval;
+	char buffer[MAX_PACKET_BUFFER];
+	
+	fill_packet(probe, buffer, params->packet_len - sizeof(struct iphdr), env);
+
+	if (setsockopt(env->sockfd, IPPROTO_IP, IP_TTL, &probe->sent_ttl, sizeof(probe->sent_ttl)) < 0) {
+		printf("setsockopt IP_TTL failed\n");
+		return FAILURE;
+	}
+	retval = sendto(env->sockfd, buffer, params->packet_len - sizeof(struct iphdr), 0, (struct sockaddr*)&env->dest_addr, sizeof(env->dest_addr)); 
+	if (retval < 0) {
+		printf("couldn't send probe\n");
+		return FAILURE;
+	}
+	retval = gettimeofday(&probe->sent_time, NULL);
+	if (retval != SUCCESS) {
+		printf("couldn't get time of day\n");
+		return FAILURE;
+	}
+	probe->sent = 1;
+	return SUCCESS;
+}
 
 int	send_probes(struct s_env *env, struct s_params *params)
 {
@@ -213,20 +303,12 @@ int	send_probes(struct s_env *env, struct s_params *params)
 	printf("  Its seq is: %d and its sent_ttl is %d\n", probe->seq, probe->sent_ttl);
 	*/
 
-	// build and send message
-	// maybe set the sent_time when sent in this func
-
-	retval = gettimeofday(&probe->sent_time, NULL);
-	if (retval != SUCCESS) {
-		printf("couldn't get time of day\n");
+	retval = send_probe_message(probe, env, params);
+	if (retval != SUCCESS)
 		return FAILURE;
-	}
 
-	probe->sent = 1;
-
-	if (params->send_wait > 0) {
+	if (params->send_wait > 0)
 		set_next_send(&probe->sent_time, &next_send, params->send_wait);
-	}
 	to_send++;		
 	env->probes_sent++;
 	env->probes_waiting++;
@@ -409,7 +491,8 @@ int	print_probes(struct s_env *env, struct s_params *params)
 			return SUCCESS;
 		if (probe->first_in_hop)
 			printf("%*hhd ", number_size, probe->sent_ttl);
-		printf("* "); // case timeout, for test purpose
+		if (probe->timeout)
+			printf("* ");
 		// should print infos
 		if (probe->last_in_hop) {
 			printf("\n");
