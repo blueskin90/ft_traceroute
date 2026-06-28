@@ -369,6 +369,7 @@ int	parse_response(struct s_env *env, struct s_params *params, char *packet, int
 		printf("not correct type\n");
 		return SUCCESS;
 	}
+	//printf("received an answer !\n");
 	//dump_probe(probe);
 	env->probes_waiting--;
 	env->probes_received++;
@@ -421,6 +422,7 @@ int	check_timeout_probe(struct s_probe *probe, struct s_env *env, struct s_param
 	env->probes_timeouted++;
 	probe->done = 1;
 	probe->timeout = 1;
+	//printf("timeouted a probe !\n");
 	return SUCCESS;
 }
 
@@ -462,23 +464,24 @@ void	print_probe_rtt(struct s_probe *probe)
 	printf("  %.3f ms", (float)rtt.tv_sec * 1000 + (float)rtt.tv_usec / 1000);
 }
 
-int	is_first_probe_address(struct s_probe *probe, struct s_env *env, struct s_params *params)
+int	is_first_probe_address(struct s_probe *probe, int probe_idx, struct s_env *env, struct s_params *params)
 {
-	int probe_idx = ((char*)probe - (char*)env->probes) / sizeof(struct s_probe);
-	int first_probe_idx = probe_idx;
+	int first_probe_idx = probe_idx - (probe_idx % params->probe_per_hop);
 	int last_probe_idx = first_probe_idx + params->probe_per_hop - 1;
 	int idx;
 
 	if (probe->first_in_hop)
 		return 1;
-	while (env->probes[first_probe_idx].first_in_hop == 0)
-		first_probe_idx--;
+	// issue in this function
 	idx = first_probe_idx;
 	while (idx <= last_probe_idx) {
-		if (idx == probe_idx || env->probes[idx].done == 0)
+		if (idx == probe_idx || env->probes[idx].done == 0) {
+			idx++;
 			continue;
-		if (memcmp(&env->probes[idx].recv_addr, &probe->recv_addr, sizeof(probe->recv_addr)) == 0)
+		}
+		if (memcmp(&(env->probes[idx].recv_addr), &(probe->recv_addr), sizeof(probe->recv_addr)) == 0)
 			return 0; 
+		idx++;
 	}
 	return 1;
 }
@@ -535,7 +538,7 @@ int	print_probes(struct s_env *env, struct s_params *params)
 		if (probe->timeout)
 			printf(" *");
 		else {
-			if (is_first_probe_address(probe, env, params))
+			if (is_first_probe_address(probe, to_print, env, params))
 				print_probe_address(probe, env, params);
 			print_probe_rtt(probe);
 		}
@@ -548,6 +551,7 @@ int	print_probes(struct s_env *env, struct s_params *params)
 		}
 		to_print++;
 	}
+	printf("done printing !\n");
 	env->done_printing = 1;
 	return SUCCESS;
 }
