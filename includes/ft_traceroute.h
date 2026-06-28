@@ -11,6 +11,8 @@
 #define ECHO_REQUEST 8
 #define ECHO_REPLY 0
 
+#define PROTOCOL_ICMP 1
+
 #define ICMP_TTL_EXCEEDED 11
 #define ICMP_DEST_UNREACHABLE 3
 
@@ -21,7 +23,7 @@ struct icmp4_hdr {
 	uint16_t ident;
 	uint16_t sequence;
 	char data[];
-};
+} __attribute__((packed));
 
 struct iphdr {
     	#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
@@ -42,7 +44,7 @@ struct iphdr {
 	uint16_t check;
 	uint32_t saddr;
 	uint32_t daddr;
-};
+} __attribute__((packed));
 
 enum e_status{
     SUCCESS = 0,
@@ -113,6 +115,7 @@ struct s_probe {
 	char recv_answer:1;
 	char timeout:1;
 	char is_host:1;
+	char is_printed:1;
 	uint8_t recv_ttl;
 	struct timeval recv_time;
 	uint32_t recv_addr; // address who sent us the answer

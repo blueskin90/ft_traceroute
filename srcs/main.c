@@ -38,7 +38,7 @@ static int	parsing(int ac, char **av, struct s_params *params)
 	(void)av;
 	params->flags.icmp = 1;
 	params->dest_port = DEFAULT_ICMP_SEQ;
-	params->host = strdup("google.com"); // for temporary test without parsing
+	params->host = strdup("8.8.8.8"); // for temporary test without parsing
 	//params->send_wait = 1;
 	//params->host = strdup("8.8.8.8"); // for temporary test without parsing
 	// consider ./ft_traceroute -I 8.8.8.8
@@ -167,8 +167,8 @@ void	fill_packet(struct s_probe *probe, char *buffer, int bufsize, struct s_env 
 
 	bzero(buffer, bufsize);
 	hdr->msg_type = ECHO_REQUEST;
-	hdr->ident = env->pid;
-	hdr->sequence = probe->seq;
+	hdr->ident = htons(env->pid);
+	hdr->sequence = htons(probe->seq);
 
 	fill_buffer(buffer + sizeof(struct icmp4_hdr), bufsize - sizeof(struct icmp4_hdr));
 	compute_checksum(buffer, bufsize);
@@ -207,7 +207,7 @@ int	send_probes(struct s_env *env, struct s_params *params)
 	struct timeval now;
 	int retval;
 
-	if (env->probes_waiting > params->probe_burst)
+	if (env->probes_waiting >= params->probe_burst)
 		return SUCCESS;
 	if (to_send != 0 && params->send_wait != 0) { // we send automatically with first send
 		retval = gettimeofday(&now, NULL);
@@ -244,10 +244,141 @@ int	send_probes(struct s_env *env, struct s_params *params)
 	return SUCCESS;
 }
 
+int verify_checksum(char* buffer, size_t buffsize)
+{
+	size_t buffsize_uint16 = buffsize / 2;
+	uint16_t *buf = (uint16_t*)buffer;
+	uint32_t checksum = 0;
+	size_t i;
+
+	if (buffsize == 0)
+		return 0;
+	for(i = 0; i < buffsize_uint16; i++)
+		checksum += buf[i];
+	if (buffsize % 2)
+		checksum += ((uint16_t)buffer[buffsize - 1]);
+	checksum = (checksum & 0xffff) + (checksum >> 16);
+	return (checksum == 0xffff);
+}
+
+#include <stdio.h>
+#include <stdint.h>
+#include <arpa/inet.h>
+
+void dump_ip_header(const struct iphdr *ip) {
+	char saddr_str[INET_ADDRSTRLEN];
+	char daddr_str[INET_ADDRSTRLEN];
+
+	// Convert network addresses to human-readable strings
+	inet_ntop(AF_INET, &(ip->saddr), saddr_str, INET_ADDRSTRLEN);
+	inet_ntop(AF_INET, &(ip->daddr), daddr_str, INET_ADDRSTRLEN);
+
+	printf("--- IPv4 Header Dump ---\n");
+	printf("Version      : %u\n", ip->version);
+	printf("IHL          : %u (Words: %u, Bytes: %u)\n", ip->ihl, ip->ihl, ip->ihl * 4);
+	printf("TOS          : 0x%02x\n", ip->tos);
+	printf("Total Length : %u\n", ntohs(ip->tot_len));
+	printf("ID           : %u\n", ntohs(ip->id));
+	printf("Frag Offset  : %u\n", ntohs(ip->frag_off));
+	printf("TTL          : %u\n", ip->ttl);
+	printf("Protocol     : %u\n", ip->protocol);
+	printf("Checksum     : 0x%04x\n", ntohs(ip->check));
+	printf("Source Addr  : %s\n", saddr_str);
+	printf("Dest Addr    : %s\n", daddr_str);
+	printf("------------------------\n");
+}
+
+void dump_icmp_header(const struct icmp4_hdr *icmp) {
+	    printf("--- ICMP Header Dump ---\n");
+	    printf("Type     : %u\n", icmp->msg_type);
+	    printf("Code     : %u\n", icmp->code);
+	    printf("Checksum : 0x%04x\n", ntohs(icmp->checksum));
+	    printf("ID       : %u\n", ntohs(icmp->ident));
+	    printf("Sequence : %u\n", ntohs(icmp->sequence));
+	    printf("------------------------\n");
+}
+
+struct s_probe* find_probe(struct icmp4_hdr *hdr, struct s_env *env, struct s_params *params) {
+	uint16_t sequence = ntohs(hdr->sequence);
+	uint16_t idx = sequence - params->dest_port;
+	
+	if (sequence > env->probe_number)
+		return NULL;
+	return &(env->probes[idx]);
+}
+
+void	fill_probe(struct s_probe *probe, struct iphdr *iphdr, struct timeval *recv_time, int is_host)
+{
+	probe->done = 1;
+	probe->recv_answer = 1;
+	probe->is_host = is_host & 1;
+	probe->recv_ttl = iphdr->ttl;
+	probe->recv_addr = iphdr->saddr;
+	memcpy(&probe->recv_time, recv_time, sizeof(struct timeval));
+}
+
+void	dump_probe(struct s_probe *probe) {
+	char saddr_str[INET_ADDRSTRLEN];
+
+	inet_ntop(AF_INET, &(probe->recv_addr), saddr_str, INET_ADDRSTRLEN);
+
+	printf("--probe dump--\n");
+	printf("Source Addr  : %s\n", saddr_str);
+	printf("hop num: %d\n", probe->hop_num);
+	printf("sent ttl %hhd\n", probe->sent_ttl);
+	printf("------------------------\n");
+
+}
+
 int	parse_response(struct s_env *env, struct s_params *params, char *packet, int packetlen) {
-	(void)env;
-	(void)params;
-	(void)packet;
+	struct iphdr *iphdr = (struct iphdr*)packet;
+	struct icmp4_hdr *icmphdr = (struct icmp4_hdr*)(iphdr + 1);
+	struct icmp4_hdr *icmphdr_request = (struct icmp4_hdr*)((char*)iphdr + sizeof(struct iphdr) * 2 + sizeof(struct icmp4_hdr));
+	struct timeval recv_time;
+	struct s_probe *probe = NULL;
+
+	if (iphdr->protocol != PROTOCOL_ICMP) {
+		printf("NOT ICMP !\n");
+		return SUCCESS;
+	}
+	// verify size here
+	if (ntohs(icmphdr_request->ident) != env->pid && ntohs(icmphdr->ident) != env->pid) {
+		printf("NOT CORRECT PID !\n");
+		return SUCCESS;	
+	}
+	if (!verify_checksum((char*)icmphdr, packetlen - sizeof(struct iphdr))) {
+		printf("NOT CORRECT CHECKSUM !\n");
+		return SUCCESS;
+	}
+	
+	gettimeofday(&recv_time, NULL);
+	if (icmphdr->msg_type == 11) {// TTL EXCEEDED
+		probe = find_probe(icmphdr_request, env, params);
+		if (probe == NULL)
+			return FAILURE; // should have found the probe
+		fill_probe(probe, iphdr, &recv_time, 0);
+	}
+	else if (icmphdr->msg_type == 0) { // ECHO REPLY
+		probe = find_probe(icmphdr, env, params);
+		if (probe == NULL)
+			return FAILURE; // should have found the probe
+		fill_probe(probe, iphdr, &recv_time, 1);
+		env->found_host = 1;
+	}
+	else {
+		printf("not correct type\n");
+		return SUCCESS;
+	}
+	//dump_probe(probe);
+	env->probes_waiting--;
+	env->probes_received++;
+	if (probe->last_in_hop && probe->is_host) {
+		env->done_sending = 1;
+		env->done_receiving = 1;
+	}
+	// maybe do with the type of answer
+	//dump_ip_header(iphdr);
+	//dump_icmp_header(icmphdr);
 	(void)packetlen;
 	return SUCCESS;
 }
@@ -255,19 +386,20 @@ int	parse_response(struct s_env *env, struct s_params *params, char *packet, int
 int	receive_probes(struct s_env *env, struct s_params *params)
 {
 	char packet[MAX_PACKET_BUFFER];
-	struct sockaddr addr;
-	socklen_t addrlen;
 	int retval;
 
 	bzero(&packet, MAX_PACKET_BUFFER);
-	retval = recvfrom(env->sockfd, packet, MAX_PACKET_BUFFER, MSG_DONTWAIT, &addr, &addrlen);
+	retval = recvfrom(env->sockfd, packet, MAX_PACKET_BUFFER, MSG_DONTWAIT, NULL, NULL);
+	while (retval > 0) {
+		parse_response(env, params, packet, retval);
+		retval = recvfrom(env->sockfd, packet, MAX_PACKET_BUFFER, MSG_DONTWAIT, NULL, NULL);
+	}
 	if (retval < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 			return SUCCESS;
 		printf("error when receiving\n");
 		return FAILURE;
 	}
-	parse_response(env, params, packet, retval);
 	return SUCCESS;
 }
 
@@ -303,21 +435,81 @@ int	timeout_probes(struct s_env *env, struct s_params *params)
 		probe = &(env->probes[idx_check]);
 		if (probe->sent == 0)
 			return SUCCESS;
-
-		retval = check_timeout_probe(probe, env, params);
-		if (retval != SUCCESS)
-			return FAILURE;
-
+		if (probe->done == 0) {
+			retval = check_timeout_probe(probe, env, params);
+			if (retval != SUCCESS)
+				return FAILURE;
+		}
 		if (probe->done && to_check == idx_check) {
 			to_check++; // increment for next check
 			if (probe->last_in_hop && probe->is_host) {
 				env->done_timeout = 1;
+				env->done_receiving = 1;
 				return SUCCESS;
 			}
 		}
 		idx_check++;
 	}
 	return SUCCESS;
+}
+
+
+void	print_probe_rtt(struct s_probe *probe)
+{
+	struct timeval rtt;
+
+	sub_timeval(&probe->recv_time, &probe->sent_time, &rtt);
+	printf("  %.3f ms", (float)rtt.tv_sec * 1000 + (float)rtt.tv_usec / 1000);
+}
+
+int	is_first_probe_address(struct s_probe *probe, struct s_env *env, struct s_params *params)
+{
+	int probe_idx = ((char*)probe - (char*)env->probes) / sizeof(struct s_probe);
+	int first_probe_idx = probe_idx;
+	int last_probe_idx = first_probe_idx + params->probe_per_hop - 1;
+	int idx;
+
+	if (probe->first_in_hop)
+		return 1;
+	while (env->probes[first_probe_idx].first_in_hop == 0)
+		first_probe_idx--;
+	idx = first_probe_idx;
+	while (idx <= last_probe_idx) {
+		if (idx == probe_idx || env->probes[idx].done == 0)
+			continue;
+		if (memcmp(&env->probes[idx].recv_addr, &probe->recv_addr, sizeof(probe->recv_addr)) == 0)
+			return 0; 
+	}
+	return 1;
+}
+
+void	print_probe_address(struct s_probe *probe, struct s_env *env, struct s_params *params)
+{
+	char saddr_str[INET_ADDRSTRLEN];
+
+	struct sockaddr_in sa;
+	char hostname[NI_MAXHOST];
+
+	inet_ntop(AF_INET, &(probe->recv_addr), saddr_str, INET_ADDRSTRLEN);
+	if (params->flags.no_host) {
+    		printf(" %s ", saddr_str);
+		return;
+	}
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sin_family = AF_INET;
+	inet_pton(AF_INET, saddr_str, &sa.sin_addr);
+
+	int result = getnameinfo((struct sockaddr *)&sa, sizeof(sa), 
+				 hostname, sizeof(hostname), 
+				 NULL, 0, NI_NAMEREQD);
+
+	if (result == 0) {
+	    printf(" %s (%s)", hostname, saddr_str);
+	} else {
+	    printf(" %s (%s)", saddr_str, saddr_str);
+	}
+	(void)env;
 }
 
 int	print_probes(struct s_env *env, struct s_params *params)
@@ -337,15 +529,22 @@ int	print_probes(struct s_env *env, struct s_params *params)
 		probe = &(env->probes[to_print]);
 		if (probe->done == 0)
 			return SUCCESS;
-		if (probe->first_in_hop)
+		if (probe->first_in_hop) {
 			printf("%*hhd ", number_size, probe->sent_ttl);
+		}
 		if (probe->timeout)
-			printf("* ");
-		// should print infos
+			printf(" *");
+		else {
+			if (is_first_probe_address(probe, env, params))
+				print_probe_address(probe, env, params);
+			print_probe_rtt(probe);
+		}
 		if (probe->last_in_hop) {
 			printf("\n");
-			if (probe->is_host)
+			if (probe->is_host) {
 				env->done_printing = 1;
+				return SUCCESS;
+			}
 		}
 		to_print++;
 	}
@@ -374,6 +573,7 @@ int	traceroute_icmp(struct s_env *env, struct s_params *params)
 				return FAILURE;
 		}
 		if (env->done_receiving == 0) {
+			// when uncommenting this block, infinite loop
 			retval = receive_probes(env, params);
 			if (retval != SUCCESS)
 				return FAILURE;
@@ -486,6 +686,7 @@ void dump_addrinfo(struct addrinfo *res) {
     printf("---------------------\n");
 }
 
+*/
 void dump_sockaddr_in(const struct sockaddr_in *addr) {
     if (addr == NULL) return;
 
@@ -503,7 +704,6 @@ void dump_sockaddr_in(const struct sockaddr_in *addr) {
     printf("Port:     %u\n", port);
     printf("------------------------\n");
 }
-*/
 
 int	resolve_host(struct s_env *env, struct s_params *params)
 {
@@ -537,9 +737,41 @@ int	resolve_host(struct s_env *env, struct s_params *params)
 	memcpy(&env->dest_addr.sin_addr, &((struct sockaddr_in*)res->ai_addr)->sin_addr, sizeof(env->dest_addr.sin_addr));
 	freeaddrinfo(res);
 	//dump_sockaddr_in(&env->dest_addr);
+	//dump_sockaddr_in(&env->dest_addr);
 	return SUCCESS;
 }
+#include <stdio.h>
 
+void dump_env(const struct s_env *env) {
+    if (!env) return;
+
+    printf("--- Application State (s_env) ---\n");
+    printf("Hop Number      : %d\n", env->hop_number);
+    printf("Probe Number    : %d\n", env->probe_number);
+    
+    printf("\n[Statistics]\n");
+    printf("Sent            : %d\n", env->probes_sent);
+    printf("Waiting         : %d\n", env->probes_waiting);
+    printf("Received        : %d\n", env->probes_received);
+    printf("Timeouted       : %d\n", env->probes_timeouted);
+
+    printf("\n[Flags]\n");
+    printf("Done Sending    : %d\n", env->done_sending);
+    printf("Done Timeout    : %d\n", env->done_timeout);
+    printf("Done Receiving  : %d\n", env->done_receiving);
+    printf("Done Printing   : %d\n", env->done_printing);
+    printf("Found Host      : %d\n", env->found_host);
+
+    printf("\n[Configuration]\n");
+    printf("Socket FD       : %d\n", env->sockfd);
+    printf("Program Name    : %s\n", env->prog ? env->prog : "NULL");
+    printf("PID             : %u\n", env->pid);
+
+    // Call the helper function from previous step
+    dump_sockaddr_in(&env->dest_addr);
+    
+    printf("---------------------------------\n");
+}
 int	main(int ac, char **av)
 {
 	struct s_env env;
@@ -577,6 +809,7 @@ int	main(int ac, char **av)
 		return retval;
 	}
 
+	//dump_env(&env);
 	traceroute(&env, &params); // no malloc
 	
 	close(env.sockfd);

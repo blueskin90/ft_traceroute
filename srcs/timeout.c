@@ -67,7 +67,7 @@ static int	get_near_rtt(struct s_env *env, struct s_params *params, struct s_pro
 	return 0;
 }
 
-// returns 1 if there is a neare timeout available
+// returns 1 if there is a near timeout available
 static int	get_near_timeout(struct s_env *env, struct s_params *params, struct s_probe *probe, struct timeval *near_timeout)
 {
 	struct timeval near_rtt;
