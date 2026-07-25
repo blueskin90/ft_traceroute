@@ -53,11 +53,10 @@ static int	get_here_timeout(struct s_env *env, struct s_params *params, struct s
 static int	get_near_rtt(struct s_env *env, struct s_params *params, struct s_probe *probe, struct timeval *near_rtt)
 {
 	int idx_first_probe = probe->hop_num * params->probe_per_hop + params->probe_per_hop;
-	int next_hop_first_probe = idx_first_probe + params->probe_per_hop;
 	struct s_probe *probe_ptr;
 	int idx;
 
-	for (idx = idx_first_probe; idx < next_hop_first_probe && idx < env->probe_number; idx++) {
+	for (idx = idx_first_probe; idx < env->probe_number; idx++) {
 		probe_ptr = &(env->probes[idx]);
 		if (probe_ptr->recv_answer) {
 			sub_timeval(&probe_ptr->recv_time, &probe_ptr->sent_time, near_rtt);
