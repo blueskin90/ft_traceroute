@@ -466,15 +466,14 @@ void	print_probe_rtt(struct s_probe *probe)
 
 int	is_first_probe_address(struct s_probe *probe, int probe_idx, struct s_env *env, struct s_params *params)
 {
-	int first_probe_idx = probe_idx - (probe_idx % params->probe_per_hop);
-	int last_probe_idx = first_probe_idx + params->probe_per_hop - 1;
+	int first_probe_idx = probe->hop_num * params->probe_per_hop;
 	int idx;
 
 	if (probe->first_in_hop)
 		return 1;
 	// issue in this function
 	idx = first_probe_idx;
-	while (idx <= last_probe_idx) {
+	while (idx < probe_idx) {
 		if (idx == probe_idx || env->probes[idx].done == 0) {
 			idx++;
 			continue;
