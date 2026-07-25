@@ -1,10 +1,26 @@
 flag:
+	long: back
+	type: bool
+	desc: Guess the number of hops in the backward path and print if it differs
+	-
 	short: f
 	long: first
 	arg_name: first_ttl
 	type: uint8_t
 	default: 1
 	desc: Specifies with what TTL to start.
+	-
+	short: I
+	type: bool
+	desc: force icmp
+	-
+	short: T
+	type: bool
+	desc: force tcp
+	-
+	short: U
+	type: bool
+	desc: force udp
 	-
 	short: m
 	long: max-hops
@@ -14,9 +30,17 @@ flag:
 	min: 1
 	desc: Specifies the maximum number of hops (max time_to_live value)
 	-
-	long: mtu
-	type: bool #peut etre que on devrait faire une fonction specifique pour set un pointeur sur bool, genre on doit passer l'offset du bit dans le pointeur aussi ?
-	desc: Discover MTU along the path being traced. Implies -F -N 1.  New mtu is printed once in a form of F=NUM at the first probe of a hop which requires such mtu to be reached. (Actually, the corre‐spond "frag needed" icmp message normally is sent by the previous hop). Note, that some routers might cache once the seen information on a fragmentation. Thus you can receive the final mtu from a closer hop.  Try to specify an unusual tos by -t ,  this  can  help for one attempt (then it can be cached there as well).
+	short: N
+	long: sim-queries
+	arg_name: squeries
+	type: uint16_t
+	min: 1
+	default: 16
+	desc: Set the number of probes to be tried simultaneously.
+	-
+	short: n
+	type: bool
+	desc: Do not resolve IP addresses to their domain names.
 	-
 	short: p
 	long: port
@@ -34,6 +58,14 @@ flag:
 	max: 10
 	desc: Sets the number of probe packets per hop
 	-
+	short: z
+	long: sendwait
+	arg_name: sendwait
+	type: float
+	default: 0
+	desc: Minimal time interval between probes. If the value is more than 10, then it specifies a number in milliseconds, else it is a number of seconds (float point values allowed too).
+	-
+	short: h
 	long: help
 	type: help
 	-
@@ -50,6 +82,6 @@ optional argument:
 	arg_name: packetlen
 	type: uint32_t
 	default: 60
-	min: 0
+	min: 28
 	max: 65507
 	desc: The packet data size.

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include "lib_arg_parsing.h"
 
 
 static int	init_params(struct s_params *params)
@@ -34,16 +35,48 @@ static int	init_env(struct s_env *env, char *prog)
 
 static int	parsing(int ac, char **av, struct s_params *params)
 {		
-	(void)ac;
-	(void)av;
-	params->flags.icmp = 1;
-	params->dest_port = DEFAULT_ICMP_SEQ;
-	params->host = strdup("8.8.8.8"); // for temporary test without parsing
-	//params->send_wait = 1;
-	//params->host = strdup("8.8.8.8"); // for temporary test without parsing
-	// consider ./ft_traceroute -I 8.8.8.8
-	// disallow any combination of flags for icmp / tcp / udp
-	return SUCCESS;
+	int retval;
+	char tmpflag;
+
+	retval = init_lib("config/config.ntmlp");
+	if (retval != SUCCESS)
+		return retval;
+
+	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b1, "--back");
+	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b10, "-n");
+	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b100, "-I");
+	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b1000, "-T");
+	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b10000, "-U");
+	set_ptr(&params->first_ttl, "-f");
+	set_ptr(&params->max_ttl, "-m");
+	set_ptr(&params->probe_burst, "-N"); // to change
+	set_ptr(&params->dest_port, "-p");
+	set_ptr(&params->probe_per_hop, "-q");
+	set_ptr(&params->send_wait, "-z");
+	set_string_ptr(&params->host, "host");
+	set_ptr(&params->packet_len, "packetlen");
+	retval = parse(ac, av);	
+
+	if (params->flags.icmp + params->flags.udp + params->flags.tcp > 1) {
+		printf("can't enable a combination of -I -T -U\n");
+		return -1;
+	}
+	if (params->dest_port == 0) {
+		if (params->flags.icmp == 1) {
+			params->dest_port = DEFAULT_ICMP_SEQ;
+			return retval;
+		}
+		else if (params->flags.tcp == 1)
+			printf("need to implement tcp first");
+		else if (params->flags.udp == 1) 
+			printf("need to implement udp first");
+		else 
+			printf("need to implement udp first");
+		return -1;
+	}
+	return retval;
+	// missing -w ! but mor or less easy to implement
+	// it still mallocs !
 }
 
 int	init_probes(struct s_env *env, struct s_params *params)
@@ -94,7 +127,7 @@ void	set_next_send(struct timeval *sent_time, struct timeval *next_send, float s
 		nsec = (int)send_wait;
 		to_add.tv_sec = nsec;
 		to_add.tv_usec = (send_wait - (float)nsec) * 1000000;
-	}	
+	} // specifies seconds case
 	add_timeval(sent_time, &to_add, next_send);
 }
 
@@ -550,7 +583,6 @@ int	print_probes(struct s_env *env, struct s_params *params)
 		}
 		to_print++;
 	}
-	printf("done printing !\n");
 	env->done_printing = 1;
 	return SUCCESS;
 }

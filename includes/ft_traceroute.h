@@ -46,11 +46,6 @@ struct iphdr {
 	uint32_t daddr;
 } __attribute__((packed));
 
-enum e_status{
-    SUCCESS = 0,
-    FAILURE = 1
-};
-
 #define DEFAULT_MAX_TTL 30
 #define DEFAULT_FIRST_TTL 1
 #define DEFAULT_PROBE_PER_HOP 3
@@ -68,6 +63,29 @@ enum e_status{
 
 #define MAX_PACKET_BUFFER 256
 // to change
+
+/*
+	min packet size = 28
+
+#define MAX_HOPS	255
+#define MAX_PROBES	10
+#define MAX_GATEWAYS_4	8
+#define MAX_GATEWAYS_6	127
+#define DEF_HOPS	30
+#define DEF_SIM_PROBES	16	
+#define DEF_NUM_PROBES	3
+#define DEF_WAIT_SECS	5.0
+#define DEF_HERE_FACTOR	3
+#define DEF_NEAR_FACTOR	10
+#ifndef DEF_WAIT_PREC
+#define DEF_WAIT_PREC	0.001	// +1 ms  to avoid precision issues
+#endif
+#define DEF_SEND_SECS	0
+#define DEF_DATA_LEN	40	//  all but IP header...
+#define MAX_PACKET_LEN	65000
+
+
+*/
 
 struct s_flags {
 	uint8_t back:1; /* --back estimate the return ttl based on 64, 128 or 255 if different from sent ttl */
