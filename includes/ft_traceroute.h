@@ -11,7 +11,15 @@
 #define ECHO_REQUEST 8
 #define ECHO_REPLY 0
 
+#define FAILURE ERROR
 #define PROTOCOL_ICMP 1
+#define PROTOCOL_TCP 6
+#define PROTOCOL_UDP 17
+
+#define PROBE_SOURCE_PORT 49152
+#define TCP_FLAG_SYN 0x02
+#define TCP_FLAG_RST 0x04
+#define TCP_FLAG_ACK 0x10
 
 #define ICMP_TTL_EXCEEDED 11
 #define ICMP_DEST_UNREACHABLE 3
@@ -23,6 +31,25 @@ struct icmp4_hdr {
 	uint16_t ident;
 	uint16_t sequence;
 	char data[];
+} __attribute__((packed));
+
+struct udp_hdr {
+	uint16_t source;
+	uint16_t dest;
+	uint16_t len;
+	uint16_t checksum;
+} __attribute__((packed));
+
+struct tcp_hdr {
+	uint16_t source;
+	uint16_t dest;
+	uint32_t sequence;
+	uint32_t acknowledgement;
+	uint8_t data_offset;
+	uint8_t flags;
+	uint16_t window;
+	uint16_t checksum;
+	uint16_t urgent;
 } __attribute__((packed));
 
 struct iphdr {
@@ -61,7 +88,7 @@ struct iphdr {
 
 #define DEFAULT_PACKET_LEN 40 + sizeof(struct iphdr)
 
-#define MAX_PACKET_BUFFER 256
+#define MAX_PACKET_BUFFER 65535
 // to change
 
 /*
@@ -163,8 +190,10 @@ struct s_env
 	uint8_t found_host:1;
 	struct s_probe *probes;
 	int sockfd;
+	int sendfd;
 	char *prog;
 	uint16_t pid;
+	uint32_t source_addr;
 	struct sockaddr_in dest_addr;
 };
 
