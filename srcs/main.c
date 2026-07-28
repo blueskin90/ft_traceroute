@@ -51,6 +51,7 @@ static int	parsing(int ac, char **av, struct s_params *params)
 	set_ptr(&params->probe_burst, "-N"); // to change
 	set_ptr(&params->dest_port, "-p");
 	set_ptr(&params->probe_per_hop, "-q");
+	set_ptr(&params->send_wait, "-z");
 	set_string_ptr(&params->host, "host");
 	set_ptr(&params->packet_len, "packetlen");
 	retval = parse(ac, av);

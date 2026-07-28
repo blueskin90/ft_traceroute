@@ -26,6 +26,7 @@ enum e_type {
 	CUSTOM = 0x800,
 	HELP_TYPE = 0x1000,
 	USAGE_TYPE = 0x2000,
+	FLOAT = 0x4000,
 };
 
 #define UNSIGNED_TYPE ((UINT8_T | UINT16_T | UINT32_T | UINT64_T))
@@ -74,6 +75,7 @@ int signed_check(char *val, struct s_flag *flag);
 int string_check(char *val, struct s_flag *flag);
 int char_check(char *val, struct s_flag *flag);
 int dummy_check(char *val, struct s_flag *flag);
+int float_check(char *val, struct s_flag *flag);
 
 int unsigned_parse(char *val, struct s_flag *flag);
 int signed_parse(char *val, struct s_flag *flag);
@@ -83,5 +85,6 @@ int bool_parse(char *dummy, struct s_flag *flag);
 int dummy_parse(char *val, struct s_flag *flag);
 int help_parse(char *val, struct s_flag *flag);
 int usage_parse(char *val, struct s_flag *flag);
+int float_parse(char *val, struct s_flag *flag);
 
 #endif

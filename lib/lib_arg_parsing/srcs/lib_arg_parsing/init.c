@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <float.h>
 
 char    *clean_line(char *line)
 {
@@ -93,7 +94,7 @@ int    parse_descriptor_line(char *line, int *line_nb, t_flag *current)
         "uint8_t", "uint16_t", "uint32_t", "uint64_t",
         "int8_t",   "int16_t",   "int32_t",   "int64_t",
         "string",   "char",      "bool",      "custom",
-	"help", "usage",
+	"help", "usage", "float",
 	NULL
     };
     const char desc_format[] = "\tdesc: ";
@@ -131,6 +132,9 @@ int    parse_descriptor_line(char *line, int *line_nb, t_flag *current)
         else if (current->type >= INT8_T && current->type <= INT64_T)
             current->complementary.integer.default_val =
                 atoi(line + strlen(default_format));
+        else if (current->type == FLOAT)
+            current->complementary.float_values.default_val =
+                strtof(line + strlen(default_format), NULL);
         else if (current->type == 0)
         {
             fprintf(stderr, "err(10): no type given for default at line %d\n", *line_nb);
@@ -151,6 +155,9 @@ int    parse_descriptor_line(char *line, int *line_nb, t_flag *current)
         else if (current->type >= INT8_T && current->type <= INT64_T)
             current->complementary.integer.min =
                 atoi(line + strlen(min_format));
+        else if (current->type == FLOAT)
+            current->complementary.float_values.min =
+                strtof(line + strlen(min_format), NULL);
         else if (current->type == 0)
         {
             fprintf(stderr, "err(10): no type given for min at line %d\n", *line_nb);
@@ -171,6 +178,9 @@ int    parse_descriptor_line(char *line, int *line_nb, t_flag *current)
         else if (current->type >= INT8_T && current->type <= INT64_T)
             current->complementary.integer.max =
                 atoi(line + strlen(max_format));
+        else if (current->type == FLOAT)
+            current->complementary.float_values.max =
+                strtof(line + strlen(max_format), NULL);
         else if (current->type == 0)
         {
             fprintf(stderr, "err(10): no type given for max at line %d\n", *line_nb);
@@ -206,6 +216,7 @@ void    assign_min_max(t_flag *current)
             case INT32_T: current->complementary.integer.min = INT_MIN; break;
             case INT64_T: current->complementary.integer.min = LONG_MIN; break;
             case CHAR: current->complementary.integer.min = 0; break;
+            case FLOAT: current->complementary.float_values.min = -FLT_MAX; break;
             default: current->complementary.unsigned_integer.min = 0;
         }
     }
@@ -222,6 +233,7 @@ void    assign_min_max(t_flag *current)
             case INT32_T: current->complementary.integer.max = INT_MAX; break;
             case INT64_T: current->complementary.integer.max = LONG_MAX; break;
             case CHAR: current->complementary.integer.max = UCHAR_MAX; break;
+            case FLOAT: current->complementary.float_values.max = FLT_MAX; break;
             default: current->complementary.unsigned_integer.max = ULONG_MAX;
         }
     }
@@ -237,6 +249,8 @@ void    assign_check_function(t_flag *current)
         current->check = &string_check;
     else if (current->type & CHAR)
         current->check = &char_check;
+    else if (current->type == FLOAT)
+        current->check = &float_check;
     else
         current->check = &dummy_check;
 }
@@ -259,6 +273,8 @@ void    assign_parse_function(t_flag *current)
 	current->parse = &help_parse;
     else if (current->type & USAGE_TYPE)
 	current->parse = &usage_parse;
+    else if (current->type == FLOAT)
+        current->parse = &float_parse;
     else // unused
         current->parse = &dummy_parse;
 }

@@ -21,10 +21,17 @@ typedef struct s_bool {
 	size_t ptr_size;
 } t_bool;
 
+typedef struct s_float {
+	float min;
+	float max;
+	float default_val;
+} t_float;
+
 union u_integers {
 		t_int integer;
 		t_uint unsigned_integer;
 		t_bool bool_values;
+		t_float float_values;
 };
 
 typedef struct s_flag {

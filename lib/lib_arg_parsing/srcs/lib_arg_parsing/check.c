@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <math.h>
 
 int unsigned_check(char *val, struct s_flag *flag)
 {
@@ -34,6 +36,21 @@ int signed_check(char *val, struct s_flag *flag)
 		value > flag->complementary.integer.max)
 			return incorrect_value_signed(flag, val);
     return SUCCESS;
+}
+
+int float_check(char *val, struct s_flag *flag)
+{
+	char *end = NULL;
+	float value;
+
+	errno = 0;
+	value = strtof(val, &end);
+	if (end == val || *end != 0 || errno == ERANGE || !isfinite(value))
+		return invalid_argument(flag, val);
+	if (value < flag->complementary.float_values.min
+		|| value > flag->complementary.float_values.max)
+		return invalid_argument(flag, val);
+	return SUCCESS;
 }
 
 int string_check(char *val, struct s_flag *flag)
@@ -124,6 +141,14 @@ int signed_parse(char *val, struct s_flag *flag)
 		default: return ERROR;
 	}
     return SUCCESS;
+}
+
+int float_parse(char *val, struct s_flag *flag)
+{
+	float *ptr = (float *)flag->data;
+
+	*ptr = strtof(val, NULL);
+	return SUCCESS;
 }
 
 int string_parse(char *val, struct s_flag *flag)
