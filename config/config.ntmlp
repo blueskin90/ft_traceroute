@@ -58,13 +58,6 @@ flag:
 	max: 10
 	desc: Sets the number of probe packets per hop
 	-
-	short: z
-	long: sendwait
-	arg_name: sendwait
-	type: float
-	default: 0
-	desc: Minimal time interval between probes. If the value is more than 10, then it specifies a number in milliseconds, else it is a number of seconds (float point values allowed too).
-	-
 	short: h
 	long: help
 	type: help

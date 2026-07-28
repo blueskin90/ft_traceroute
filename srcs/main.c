@@ -36,44 +36,45 @@ static int	init_env(struct s_env *env, char *prog)
 static int	parsing(int ac, char **av, struct s_params *params)
 {		
 	int retval;
-	char tmpflag;
 
 	retval = init_lib("config/config.ntmlp");
 	if (retval != SUCCESS)
 		return retval;
 
-	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b1, "--back");
-	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b10, "-n");
-	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b100, "-I");
-	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b1000, "-T");
-	set_bool_ptr_mask(&tmpflag, sizeof(char), 0b10000, "-U");
+	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b1, "--back");
+	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b10, "-n");
+	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b100, "-I");
+	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b1000, "-T");
+	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b10000, "-U");
 	set_ptr(&params->first_ttl, "-f");
 	set_ptr(&params->max_ttl, "-m");
 	set_ptr(&params->probe_burst, "-N"); // to change
 	set_ptr(&params->dest_port, "-p");
 	set_ptr(&params->probe_per_hop, "-q");
-	set_ptr(&params->send_wait, "-z");
 	set_string_ptr(&params->host, "host");
 	set_ptr(&params->packet_len, "packetlen");
-	retval = parse(ac, av);	
+	retval = parse(ac, av);
+	if (retval != SUCCESS) {
+		close_lib();
+		return retval;
+	}
 
 	if (params->flags.icmp + params->flags.udp + params->flags.tcp > 1) {
 		printf("can't enable a combination of -I -T -U\n");
+		close_lib();
 		return -1;
 	}
 	if (params->dest_port == 0) {
-		if (params->flags.icmp == 1) {
+		if (params->flags.icmp == 1)
 			params->dest_port = DEFAULT_ICMP_SEQ;
-			return retval;
-		}
 		else if (params->flags.tcp == 1)
-			printf("need to implement tcp first");
-		else if (params->flags.udp == 1) 
-			printf("need to implement udp first");
-		else 
-			printf("need to implement udp first");
-		return -1;
+			params->dest_port = DEFAULT_CONSTANT_TCP_DEST_PORT;
+		else if (params->flags.udp == 1)
+			params->dest_port = DEFAULT_CONSTANT_UDP_DEST_PORT;
+		else
+			params->dest_port = DEFAULT_STANDARD_UDP_DEST_PORT;
 	}
+	close_lib();
 	return retval;
 	// missing -w ! but mor or less easy to implement
 	// it still mallocs !
@@ -101,7 +102,7 @@ int	init_probes(struct s_env *env, struct s_params *params)
 			probe->sent_ttl = hop + params->first_ttl;
 			if (probe_index == 0)
 				probe->first_in_hop = 1;
-			else if (probe_index == params->probe_per_hop - 1)
+			if (probe_index == params->probe_per_hop - 1)
 				probe->last_in_hop = 1;
 			seq++;
 		}
@@ -207,24 +208,50 @@ void	fill_packet(struct s_probe *probe, char *buffer, int bufsize, struct s_env 
 	compute_checksum(buffer, bufsize);
 }
 
+void	fill_udp_packet(struct s_probe *probe, char *buffer, int bufsize,
+		struct s_env *env, struct s_params *params)
+{
+	struct udp_hdr *hdr = (struct udp_hdr *)buffer;
+	uint16_t probe_index;
+
+	bzero(buffer, bufsize);
+	probe_index = probe->seq - params->dest_port;
+	if (params->flags.udp) {
+		hdr->source = htons(49152 + probe_index);
+		hdr->dest = htons(params->dest_port);
+	}
+	else {
+		hdr->source = htons(env->pid);
+		hdr->dest = htons(probe->seq);
+	}
+	hdr->len = htons(bufsize);
+	fill_buffer(buffer + sizeof(*hdr), bufsize - sizeof(*hdr));
+}
+
 int	send_probe_message(struct s_probe *probe, struct s_env *env, struct s_params *params)
 {
 	int retval;
 	char buffer[MAX_PACKET_BUFFER];
 	
-	fill_packet(probe, buffer, params->packet_len - sizeof(struct iphdr), env);
+	if (params->flags.icmp)
+		fill_packet(probe, buffer, params->packet_len - sizeof(struct iphdr), env);
+	else
+		fill_udp_packet(probe, buffer, params->packet_len - sizeof(struct iphdr),
+			env, params);
 
-	if (setsockopt(env->sockfd, IPPROTO_IP, IP_TTL, &probe->sent_ttl, sizeof(probe->sent_ttl)) < 0) {
+	if (setsockopt(env->sendfd, IPPROTO_IP, IP_TTL, &probe->sent_ttl, sizeof(probe->sent_ttl)) < 0) {
 		printf("setsockopt IP_TTL failed\n");
 		return FAILURE;
 	}
-	retval = sendto(env->sockfd, buffer, params->packet_len - sizeof(struct iphdr), 0, (struct sockaddr*)&env->dest_addr, sizeof(env->dest_addr)); 
+	retval = sendto(env->sendfd, buffer,
+		params->packet_len - sizeof(struct iphdr), 0,
+		(struct sockaddr*)&env->dest_addr, sizeof(env->dest_addr));
 	if (retval < 0) {
 		printf("couldn't send probe\n");
 		return FAILURE;
 	}
 	retval = gettimeofday(&probe->sent_time, NULL);
-	if (retval != SUCCESS) {
+	if (retval < 0) {
 		printf("couldn't get time of day\n");
 		return FAILURE;
 	}
@@ -244,7 +271,7 @@ int	send_probes(struct s_env *env, struct s_params *params)
 		return SUCCESS;
 	if (to_send != 0 && params->send_wait != 0) { // we send automatically with first send
 		retval = gettimeofday(&now, NULL);
-		if (retval != SUCCESS) {
+		if (retval < 0) {
 			printf("couldnt get time of day\n");
 			return FAILURE;
 		}
@@ -333,11 +360,25 @@ void dump_icmp_header(const struct icmp4_hdr *icmp) {
 
 struct s_probe* find_probe(struct icmp4_hdr *hdr, struct s_env *env, struct s_params *params) {
 	uint16_t sequence = ntohs(hdr->sequence);
-	uint16_t idx = sequence - params->dest_port;
+	int idx = sequence - params->dest_port;
 	
-	if (sequence > env->probe_number)
+	if (idx < 0 || idx >= env->probe_number)
 		return NULL;
 	return &(env->probes[idx]);
+}
+
+struct s_probe* find_udp_probe(struct udp_hdr *hdr, struct s_env *env,
+		struct s_params *params)
+{
+	int idx;
+
+	if (params->flags.udp)
+		idx = ntohs(hdr->source) - 49152;
+	else
+		idx = ntohs(hdr->dest) - params->dest_port;
+	if (idx < 0 || idx >= env->probe_number)
+		return NULL;
+	return &env->probes[idx];
 }
 
 void	fill_probe(struct s_probe *probe, struct iphdr *iphdr, struct timeval *recv_time, int is_host)
@@ -363,57 +404,69 @@ void	dump_probe(struct s_probe *probe) {
 
 }
 
-int	parse_response(struct s_env *env, struct s_params *params, char *packet, int packetlen) {
+int	parse_response(struct s_env *env, struct s_params *params, char *packet, int packetlen)
+{
 	struct iphdr *iphdr = (struct iphdr*)packet;
-	struct icmp4_hdr *icmphdr = (struct icmp4_hdr*)(iphdr + 1);
-	struct icmp4_hdr *icmphdr_request = (struct icmp4_hdr*)((char*)iphdr + sizeof(struct iphdr) * 2 + sizeof(struct icmp4_hdr));
+	struct icmp4_hdr *icmphdr;
+	struct iphdr *quoted_ip;
+	void *quoted_transport;
 	struct timeval recv_time;
 	struct s_probe *probe = NULL;
+	int outer_ihl;
+	int quoted_ihl;
+	int is_host = 0;
 
-	if (iphdr->protocol != PROTOCOL_ICMP) {
-		printf("NOT ICMP !\n");
+	if (packetlen < (int)(sizeof(*iphdr) + sizeof(*icmphdr))
+		|| iphdr->protocol != PROTOCOL_ICMP)
 		return SUCCESS;
-	}
-	// verify size here
-	if (ntohs(icmphdr_request->ident) != env->pid && ntohs(icmphdr->ident) != env->pid) {
-		printf("NOT CORRECT PID !\n");
-		return SUCCESS;	
-	}
-	if (!verify_checksum((char*)icmphdr, packetlen - sizeof(struct iphdr))) {
-		printf("NOT CORRECT CHECKSUM !\n");
+	outer_ihl = iphdr->ihl * 4;
+	if (outer_ihl < (int)sizeof(*iphdr)
+		|| packetlen < outer_ihl + (int)sizeof(*icmphdr))
 		return SUCCESS;
-	}
-	
+	icmphdr = (struct icmp4_hdr *)(packet + outer_ihl);
+	if (!verify_checksum((char*)icmphdr, packetlen - outer_ihl))
+		return SUCCESS;
 	gettimeofday(&recv_time, NULL);
-	if (icmphdr->msg_type == 11) {// TTL EXCEEDED
-		probe = find_probe(icmphdr_request, env, params);
-		if (probe == NULL)
-			return FAILURE; // should have found the probe
-		fill_probe(probe, iphdr, &recv_time, 0);
-	}
-	else if (icmphdr->msg_type == 0) { // ECHO REPLY
+	if (params->flags.icmp && icmphdr->msg_type == ECHO_REPLY) {
+		if (ntohs(icmphdr->ident) != env->pid)
+			return SUCCESS;
 		probe = find_probe(icmphdr, env, params);
-		if (probe == NULL)
-			return FAILURE; // should have found the probe
-		fill_probe(probe, iphdr, &recv_time, 1);
-		env->found_host = 1;
 	}
-	else {
-		printf("not correct type\n");
+	else if (icmphdr->msg_type == ICMP_TTL_EXCEEDED
+		|| icmphdr->msg_type == ICMP_DEST_UNREACHABLE) {
+		if (packetlen < outer_ihl + (int)sizeof(*icmphdr)
+			+ (int)sizeof(*quoted_ip))
+			return SUCCESS;
+		quoted_ip = (struct iphdr *)((char *)icmphdr + sizeof(*icmphdr));
+		quoted_ihl = quoted_ip->ihl * 4;
+		if (quoted_ihl < (int)sizeof(*quoted_ip)
+			|| packetlen < outer_ihl + (int)sizeof(*icmphdr) + quoted_ihl + 8)
+			return SUCCESS;
+		quoted_transport = (char *)quoted_ip + quoted_ihl;
+		if (params->flags.icmp && quoted_ip->protocol == PROTOCOL_ICMP) {
+			if (ntohs(((struct icmp4_hdr *)quoted_transport)->ident) != env->pid)
+				return SUCCESS;
+			probe = find_probe(quoted_transport, env, params);
+		}
+		else if (!params->flags.icmp && quoted_ip->protocol == PROTOCOL_UDP)
+			probe = find_udp_probe(quoted_transport, env, params);
+		is_host = (!params->flags.icmp
+			&& icmphdr->msg_type == ICMP_DEST_UNREACHABLE
+			&& icmphdr->code == 3);
+	}
+	if (probe == NULL || probe->done)
 		return SUCCESS;
-	}
-	//printf("received an answer !\n");
-	//dump_probe(probe);
+	if (params->flags.icmp && icmphdr->msg_type == ECHO_REPLY)
+		is_host = 1;
+	fill_probe(probe, iphdr, &recv_time, is_host);
+	if (is_host)
+		env->found_host = 1;
 	env->probes_waiting--;
 	env->probes_received++;
 	if (probe->last_in_hop && probe->is_host) {
 		env->done_sending = 1;
 		env->done_receiving = 1;
 	}
-	// maybe do with the type of answer
-	//dump_ip_header(iphdr);
-	//dump_icmp_header(icmphdr);
-	(void)packetlen;
 	return SUCCESS;
 }
 
@@ -444,7 +497,7 @@ int	check_timeout_probe(struct s_probe *probe, struct s_env *env, struct s_param
 
 	get_smallest_timeout(probe, &timeout, env, params);
 	retval = gettimeofday(&now, NULL);
-	if (retval != SUCCESS) {
+	if (retval < 0) {
 		printf("couldnt get time of day\n");
 		return FAILURE;
 	}
@@ -595,7 +648,7 @@ void	print_first_line(struct s_env *env, struct s_params *params)
 	printf("traceroute to %s (%s), %hhd hops max, %d byte packets\n", params->host, ip_str, params->max_ttl, params->packet_len);
 }
 
-int	traceroute_icmp(struct s_env *env, struct s_params *params)
+int	traceroute_loop(struct s_env *env, struct s_params *params)
 {
 	int running = 1;
 	int retval;
@@ -634,32 +687,11 @@ int	traceroute_tcp(struct s_env *env, struct s_params *params)
 	return FAILURE;
 }
 
-int	traceroute_udp(struct s_env *env, struct s_params *params)
-{
-	(void)env;
-	(void)params;
-	printf("udp to implement !");
-	return FAILURE;
-}
-
-int	traceroute_udp_fixed_port(struct s_env *env, struct s_params *params)
-{
-	(void)env;
-	(void)params;
-	printf("udp fixed ports to implement !");
-	return FAILURE;
-}
-
 int	traceroute(struct s_env *env, struct s_params *params)
 {
-	if (params->flags.icmp == 1)
-		return traceroute_icmp(env, params);
-	else if (params->flags.tcp == 1)
+	if (params->flags.tcp == 1)
 		return traceroute_tcp(env, params);
-	else if (params->flags.udp == 1)
-		return traceroute_udp_fixed_port(env, params);
-	else
-		return traceroute_udp(env, params);
+	return traceroute_loop(env, params);
 }
 
 // need to do all of this becase "FCNTL FORBIDDEN GNEUGNEUGNEU so no non blocking reads.
@@ -681,8 +713,6 @@ int	set_sock_timeout(int sockfd) {
 #include <errno.h>
 int	init_socket(struct s_env *env, struct s_params *params)
 {
-	(void)params;
-	// icmp at the moment
 	env->sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if (env->sockfd < 0)
 	{
@@ -691,6 +721,16 @@ int	init_socket(struct s_env *env, struct s_params *params)
 	}
 	if (set_sock_timeout(env->sockfd) != SUCCESS)
 		return FAILURE;
+	if (params->flags.icmp)
+		env->sendfd = env->sockfd;
+	else {
+		env->sendfd = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
+		if (env->sendfd < 0) {
+			printf("Couldn't create UDP socket: %s\n", strerror(errno));
+			close(env->sockfd);
+			return FAILURE;
+		}
+	}
 	return SUCCESS;
 }
 
@@ -827,28 +867,26 @@ int	main(int ac, char **av)
 	retval = resolve_host(&env, &params);
 	if (retval != SUCCESS) {
 		printf("resolve_host failed\n");
-		free(params.host); // to delete for temp testing
 		return retval;
 	}
 	retval = init_socket(&env, &params); // open socket
 	if (retval != SUCCESS) {
 		printf("init_socket failed\n");
-		free(params.host); // to delete for temp testing
 		return retval;
 	}
 	retval = init_probes(&env, &params); // malloc
 	if (retval != SUCCESS) {
 		printf("init_probes failed\n");
 		close(env.sockfd);
-		free(params.host); // to delete for temp testing
 		return retval;
 	}
 
 	//dump_env(&env);
 	traceroute(&env, &params); // no malloc
 	
+	if (env.sendfd != env.sockfd)
+		close(env.sendfd);
 	close(env.sockfd);
 	free(env.probes);
-	free(params.host); // to delete for temp testing
 	return 0;
 }

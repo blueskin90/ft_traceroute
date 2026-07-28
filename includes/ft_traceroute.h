@@ -11,7 +11,9 @@
 #define ECHO_REQUEST 8
 #define ECHO_REPLY 0
 
+#define FAILURE ERROR
 #define PROTOCOL_ICMP 1
+#define PROTOCOL_UDP 17
 
 #define ICMP_TTL_EXCEEDED 11
 #define ICMP_DEST_UNREACHABLE 3
@@ -23,6 +25,13 @@ struct icmp4_hdr {
 	uint16_t ident;
 	uint16_t sequence;
 	char data[];
+} __attribute__((packed));
+
+struct udp_hdr {
+	uint16_t source;
+	uint16_t dest;
+	uint16_t len;
+	uint16_t checksum;
 } __attribute__((packed));
 
 struct iphdr {
@@ -163,6 +172,7 @@ struct s_env
 	uint8_t found_host:1;
 	struct s_probe *probes;
 	int sockfd;
+	int sendfd;
 	char *prog;
 	uint16_t pid;
 	struct sockaddr_in dest_addr;
