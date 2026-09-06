@@ -374,6 +374,10 @@ int	parse_response(struct s_env *env, struct s_params *params, char *packet, int
 		printf("NOT ICMP !\n");
 		return SUCCESS;
 	}
+	if (packetlen < sizeof(struct iphdr) + sizeof(struct icmp4_hdr)) {
+		printf("PACKET TOO SMALL !\n");
+		return SUCCESS;
+	}
 	// verify size here
 	if (ntohs(icmphdr_request->ident) != env->pid && ntohs(icmphdr->ident) != env->pid) {
 		printf("NOT CORRECT PID !\n");
