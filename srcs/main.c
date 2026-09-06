@@ -41,7 +41,6 @@ static int	parsing(int ac, char **av, struct s_params *params)
 	if (retval != SUCCESS)
 		return retval;
 
-	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b1, "--back");
 	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b10, "-n");
 	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b100, "-I");
 	set_bool_ptr_mask(&params->flags, sizeof(params->flags), 0b1000, "-T");

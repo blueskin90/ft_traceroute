@@ -1,8 +1,4 @@
 flag:
-	long: back
-	type: bool
-	desc: Guess the number of hops in the backward path and print if it differs
-	-
 	short: f
 	long: first
 	arg_name: first_ttl
@@ -11,16 +7,19 @@ flag:
 	desc: Specifies with what TTL to start.
 	-
 	short: I
+	long: icmp
 	type: bool
-	desc: force icmp
+	desc: Force icmp
 	-
 	short: T
+	long: tcp
 	type: bool
-	desc: force tcp
+	desc: Force tcp
 	-
 	short: U
+	long: udp
 	type: bool
-	desc: force udp
+	desc: Force udp
 	-
 	short: m
 	long: max-hops
